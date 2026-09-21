@@ -26,6 +26,8 @@ struct CornBoxWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.bounces = false
         webView.navigationDelegate = context.coordinator
         context.coordinator.webView = webView
         context.coordinator.prepareAndLoadApp()
@@ -41,6 +43,8 @@ struct CornBoxWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate {
         weak var webView: WKWebView?
         private let fileManager = FileManager.default
+        private let copySemaphore = DispatchSemaphore(value: 3)
+        private let destinationLock = NSLock()
 
         private lazy var rootDirectory: URL = {
             let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -100,7 +104,7 @@ struct CornBoxWebView: UIViewRepresentable {
 
         private func presentMediaSourceMenu() {
             guard let presenter = topViewController() else { return }
-            let sheet = UIAlertController(title: "Add media", message: nil, preferredStyle: .actionSheet)
+            let sheet = UIAlertController(title: "Add media", message: "Large imports run in the background, so CornBox stays responsive.", preferredStyle: .actionSheet)
             sheet.addAction(UIAlertAction(title: "Photos", style: .default) { [weak self] _ in self?.presentPhotoPicker() })
             sheet.addAction(UIAlertAction(title: "Files", style: .default) { [weak self] _ in self?.presentDocumentPicker() })
             sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -133,8 +137,12 @@ struct CornBoxWebView: UIViewRepresentable {
             picker.dismiss(animated: true)
             guard !results.isEmpty else { return }
 
+            let total = results.count
+            sendImportProgress(completed: 0, total: total, finished: false)
+
             let group = DispatchGroup()
-            let lock = NSLock()
+            let countLock = NSLock()
+            var completed = 0
             var importedCount = 0
 
             for result in results {
@@ -145,41 +153,87 @@ struct CornBoxWebView: UIViewRepresentable {
                 } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                     requestedType = .image
                 } else {
+                    countLock.lock()
+                    completed += 1
+                    let now = completed
+                    countLock.unlock()
+                    sendImportProgress(completed: now, total: total, finished: now == total)
                     continue
                 }
 
                 group.enter()
                 provider.loadFileRepresentation(forTypeIdentifier: requestedType.identifier) { [weak self] sourceURL, _ in
                     defer { group.leave() }
-                    guard let self, let sourceURL else { return }
-                    let preferredName = self.preferredFilename(provider: provider, sourceURL: sourceURL, type: requestedType)
-                    do {
-                        _ = try self.copyIntoMediaDirectory(sourceURL, preferredName: preferredName)
-                        lock.lock(); importedCount += 1; lock.unlock()
-                    } catch {
-                        print("CornBox import error: \(error)")
+                    guard let self else { return }
+
+                    if let sourceURL {
+                        self.copySemaphore.wait()
+                        let preferredName = self.preferredFilename(provider: provider, sourceURL: sourceURL, type: requestedType)
+                        do {
+                            _ = try self.copyIntoMediaDirectory(sourceURL, preferredName: preferredName)
+                            countLock.lock(); importedCount += 1; countLock.unlock()
+                        } catch {
+                            print("CornBox import error: \(error)")
+                        }
+                        self.copySemaphore.signal()
                     }
+
+                    countLock.lock()
+                    completed += 1
+                    let now = completed
+                    countLock.unlock()
+                    self.sendImportProgress(completed: now, total: total, finished: now == total)
                 }
             }
 
             group.notify(queue: .main) { [weak self] in
                 if importedCount > 0 { self?.sendMediaListToWebView() }
+                self?.sendImportProgress(completed: total, total: total, finished: true)
             }
         }
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard !urls.isEmpty else { return }
+            let total = urls.count
+            sendImportProgress(completed: 0, total: total, finished: false)
+
+            let queue = OperationQueue()
+            queue.name = "CornBox Media Import"
+            queue.qualityOfService = .userInitiated
+            queue.maxConcurrentOperationCount = 3
+
+            let countLock = NSLock()
+            var completed = 0
             var imported = 0
+
             for sourceURL in urls {
-                let accessed = sourceURL.startAccessingSecurityScopedResource()
-                defer { if accessed { sourceURL.stopAccessingSecurityScopedResource() } }
-                do {
-                    _ = try copyIntoMediaDirectory(sourceURL, preferredName: sourceURL.lastPathComponent)
-                    imported += 1
-                } catch {
-                    print("CornBox file import error: \(error)")
+                queue.addOperation { [weak self] in
+                    guard let self else { return }
+                    autoreleasepool {
+                        let accessed = sourceURL.startAccessingSecurityScopedResource()
+                        defer { if accessed { sourceURL.stopAccessingSecurityScopedResource() } }
+                        do {
+                            _ = try self.copyIntoMediaDirectory(sourceURL, preferredName: sourceURL.lastPathComponent)
+                            countLock.lock(); imported += 1; countLock.unlock()
+                        } catch {
+                            print("CornBox file import error: \(error)")
+                        }
+
+                        countLock.lock()
+                        completed += 1
+                        let now = completed
+                        countLock.unlock()
+                        self.sendImportProgress(completed: now, total: total, finished: now == total)
+                    }
                 }
             }
-            if imported > 0 { sendMediaListToWebView() }
+
+            queue.addBarrierBlock { [weak self] in
+                DispatchQueue.main.async {
+                    if imported > 0 { self?.sendMediaListToWebView() }
+                    self?.sendImportProgress(completed: total, total: total, finished: true)
+                }
+            }
         }
 
         private func preferredFilename(provider: NSItemProvider, sourceURL: URL, type: UTType) -> String {
@@ -196,9 +250,22 @@ struct CornBoxWebView: UIViewRepresentable {
         @discardableResult
         private func copyIntoMediaDirectory(_ sourceURL: URL, preferredName: String) throws -> URL {
             try fileManager.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
-            let destination = uniqueDestination(for: sanitizeFilename(preferredName))
-            try fileManager.copyItem(at: sourceURL, to: destination)
-            return destination
+
+            // Copy the expensive bytes concurrently to a unique temporary file. Only the
+            // final, very fast rename is serialized so duplicate filenames stay safe.
+            let tempURL = mediaDirectory.appendingPathComponent(".import-\(UUID().uuidString)")
+            do {
+                try fileManager.copyItem(at: sourceURL, to: tempURL)
+
+                destinationLock.lock()
+                defer { destinationLock.unlock() }
+                let destination = uniqueDestination(for: sanitizeFilename(preferredName))
+                try fileManager.moveItem(at: tempURL, to: destination)
+                return destination
+            } catch {
+                try? fileManager.removeItem(at: tempURL)
+                throw error
+            }
         }
 
         private func sanitizeFilename(_ filename: String) -> String {
@@ -220,6 +287,15 @@ struct CornBoxWebView: UIViewRepresentable {
                 index += 1
             }
             return candidate
+        }
+
+        private func sendImportProgress(completed: Int, total: Int, finished: Bool) {
+            guard total > 0 else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let webView = self?.webView else { return }
+                let script = "window.cornboxNativeImportProgress && window.cornboxNativeImportProgress(\(completed), \(total), \(finished ? \"true\" : \"false\"));"
+                webView.evaluateJavaScript(script, completionHandler: nil)
+            }
         }
 
         private func sendMediaListToWebView() {
