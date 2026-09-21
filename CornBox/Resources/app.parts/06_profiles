@@ -1,138 +1,30 @@
-
-<style>
-/* CornBox Profiles */
-#cbProfileCard{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:linear-gradient(135deg,rgba(255,122,26,.16),rgba(255,187,85,.06));border:1px solid rgba(255,122,26,.22);margin-top:10px;cursor:pointer}
-.cbAvatar{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#242424;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex:0 0 auto}
-.cbAvatar img{width:100%;height:100%;object-fit:cover}
-.cbProfileText{min-width:0;flex:1}.cbProfileName{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cbProfileUser{font-size:12px;color:var(--accent);margin-top:2px}.cbProfileBio{font-size:12px;opacity:.58;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cbChevron{font-size:18px;opacity:.45}
-#cbProfilesOverlay{position:fixed;inset:0;z-index:90;background:#0b0b0b;display:none;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
-#cbProfilesOverlay.open{display:flex}.cbProfilesHeader{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #232323;background:#111;flex:0 0 auto}.cbProfilesHeader button{border:0;background:none;color:#fff;font-size:16px;min-width:44px;min-height:44px}.cbProfilesHeader .title{font-weight:800;font-size:17px}
-#cbProfilesBody{flex:1;overflow-y:auto;padding:16px 16px 32px}.cbSectionTitle{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.45;margin:8px 2px 10px}
-.cbProfileListItem{display:flex;align-items:center;gap:12px;padding:12px;border-radius:15px;background:#171717;border:1px solid #242424;margin-bottom:10px}.cbProfileListItem.active{border-color:rgba(255,122,26,.65);background:rgba(255,122,26,.08)}.cbProfileListItem .body{flex:1;min-width:0}.cbProfileListItem .name{font-weight:800}.cbProfileListItem .meta{font-size:12px;opacity:.55;margin-top:2px;position:static;text-shadow:none}.cbProfileListItem button{border:0;border-radius:999px;background:#252525;color:#fff;padding:9px 12px;font-weight:700}.cbProfileListItem button.primary{background:var(--accent)}
-.cbAddProfile{width:100%;border:1px dashed rgba(255,122,26,.45);background:rgba(255,122,26,.08);color:#fff;border-radius:15px;padding:14px;font-weight:800;font-size:14px}
-#cbProfileEditor{display:none}.cbEditorTop{display:flex;flex-direction:column;align-items:center;gap:9px;margin:8px 0 20px}.cbEditorTop .cbAvatar{width:86px;height:86px;font-size:34px}.cbPhotoBtn{border:0;background:#232323;color:#fff;border-radius:999px;padding:9px 13px;font-weight:700}
-.cbField{margin-bottom:14px}.cbField label{display:block;font-size:12px;font-weight:700;opacity:.58;margin:0 2px 6px}.cbField input,.cbField textarea{width:100%;border:1px solid #2d2d2d;background:#181818;color:#fff;border-radius:12px;padding:12px 13px;font-size:16px;outline:none}.cbField textarea{min-height:90px;resize:none}.cbField input:focus,.cbField textarea:focus{border-color:var(--accent)}
-.cbAccountRow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr) 42px;gap:8px;margin-bottom:8px}.cbAccountRow input{min-width:0;border:1px solid #2d2d2d;background:#181818;color:#fff;border-radius:10px;padding:11px;font-size:14px}.cbAccountRow button{border:0;background:#2a1a1a;color:#ff8c8c;border-radius:10px;font-size:17px}.cbAddAccount{width:100%;border:1px solid #333;background:#1b1b1b;color:#fff;border-radius:12px;padding:11px;font-weight:700}.cbEditorActions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.cbEditorActions button{border:0;border-radius:13px;padding:13px;font-size:14px;font-weight:800}.cbSave{background:var(--accent);color:#fff}.cbDelete{background:#321818;color:#ff9b9b}.cbCancel{background:#232323;color:#fff;grid-column:1/-1}
-@media(max-width:430px){#cbProfilesBody{padding-left:14px;padding-right:14px}.cbAccountRow{grid-template-columns:1fr 1.25fr 40px}}
-</style>
-<script>
-(() => {
-  const STORAGE_KEY='cb_profiles_v1';
-  const ACTIVE_KEY='cb_active_profile_v1';
-  let profiles=[];
-  let activeId=null;
-  let editingId=null;
-  let draftPhoto='';
-
-  const uid=()=> 'p_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  function load(){
-    try{profiles=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch{profiles=[]}
-    if(!Array.isArray(profiles))profiles=[];
-    profiles=profiles.map(p=>({id:p.id||uid(),name:p.name||'New Profile',username:p.username||'',bio:p.bio||'',photo:p.photo||'',accounts:Array.isArray(p.accounts)?p.accounts:[]}));
-    activeId=localStorage.getItem(ACTIVE_KEY)||profiles[0]?.id||null;
-    if(activeId&&!profiles.some(p=>p.id===activeId))activeId=profiles[0]?.id||null;
-    save();
-  }
-  function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(profiles));if(activeId)localStorage.setItem(ACTIVE_KEY,activeId);else localStorage.removeItem(ACTIVE_KEY)}
-  const activeProfile=()=>profiles.find(p=>p.id===activeId)||null;
-  const avatarHTML=(p,cls='cbAvatar')=>`<div class="${cls}">${p?.photo?`<img src="${p.photo}" alt="">`:'👤'}</div>`;
-
-  const settingsSheet=document.getElementById('settingsSheet');
-  if(!settingsSheet)return;
-  const header=settingsSheet.querySelector('.sheetHeader');
-  if(header?.firstElementChild)header.firstElementChild.textContent='Settings';
-
-  const cardWrap=document.createElement('div');
-  cardWrap.className='settingRow';
-  cardWrap.id='cbProfileSettingRow';
-  cardWrap.innerHTML=`<label>Profile</label><div class="sub">Create profiles with photos, bios and linked accounts.</div><div id="cbProfileCard"></div>`;
-  header.insertAdjacentElement('afterend',cardWrap);
-
-  const overlay=document.createElement('div');
-  overlay.id='cbProfilesOverlay';
-  overlay.innerHTML=`
-    <div class="cbProfilesHeader"><button id="cbProfilesBack">‹</button><div class="title">Profiles</div><button id="cbProfilesNew">＋</button></div>
-    <div id="cbProfilesBody">
-      <div id="cbProfilesListView"><div class="cbSectionTitle">Your profiles</div><div id="cbProfilesList"></div><button class="cbAddProfile" id="cbAddProfile">＋ Create profile</button></div>
-      <div id="cbProfileEditor">
-        <div class="cbEditorTop"><div id="cbEditAvatar"></div><button class="cbPhotoBtn" id="cbChoosePhoto">Choose profile picture</button><input id="cbPhotoInput" type="file" accept="image/*" hidden></div>
-        <div class="cbField"><label>Display name</label><input id="cbName" maxlength="50" placeholder="Display name"></div>
-        <div class="cbField"><label>Username</label><input id="cbUsername" maxlength="40" placeholder="@username"></div>
-        <div class="cbField"><label>Description</label><textarea id="cbBio" maxlength="300" placeholder="Tell people about this profile..."></textarea></div>
-        <div class="cbSectionTitle">Accounts</div><div id="cbAccounts"></div><button class="cbAddAccount" id="cbAddAccount">＋ Add account</button>
-        <div class="cbEditorActions"><button class="cbSave" id="cbSaveProfile">Save profile</button><button class="cbDelete" id="cbDeleteProfile">Delete</button><button class="cbCancel" id="cbCancelEdit">Cancel</button></div>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const $=id=>document.getElementById(id);
-  const listView=$('cbProfilesListView'), editor=$('cbProfileEditor'), list=$('cbProfilesList');
-  const nameInput=$('cbName'), userInput=$('cbUsername'), bioInput=$('cbBio'), accountsBox=$('cbAccounts');
-
-  function renderCard(){
-    const p=activeProfile();
-    $('cbProfileCard').innerHTML=p
-      ?`${avatarHTML(p)}<div class="cbProfileText"><div class="cbProfileName">${esc(p.name)}</div><div class="cbProfileUser">${esc(p.username||'No username')}</div><div class="cbProfileBio">${esc(p.bio||'Tap to edit your profile')}</div></div><div class="cbChevron">›</div>`
-      :`<div class="cbAvatar">👤</div><div class="cbProfileText"><div class="cbProfileName">Create a profile</div><div class="cbProfileBio">Add a photo, description and accounts</div></div><div class="cbChevron">›</div>`;
-  }
-  function renderList(){
-    list.innerHTML=profiles.length?profiles.map(p=>`<div class="cbProfileListItem ${p.id===activeId?'active':''}" data-id="${p.id}">${avatarHTML(p)}<div class="body"><div class="name">${esc(p.name)}</div><div class="meta">${esc(p.username||'No username')}${p.id===activeId?' · Current':''}</div></div><button class="cbEditProfile" data-id="${p.id}">Edit</button>${p.id===activeId?'':`<button class="primary cbUseProfile" data-id="${p.id}">Use</button>`}</div>`).join(''):`<div style="opacity:.55;font-size:13px;padding:6px 2px 16px">No profiles yet.</div>`;
-    list.querySelectorAll('.cbUseProfile').forEach(b=>b.onclick=e=>{e.stopPropagation();activeId=b.dataset.id;save();renderList();renderCard();});
-    list.querySelectorAll('.cbEditProfile').forEach(b=>b.onclick=e=>{e.stopPropagation();openEditor(b.dataset.id)});
-    list.querySelectorAll('.cbProfileListItem').forEach(row=>row.onclick=()=>openEditor(row.dataset.id));
-  }
-  function showList(){editingId=null;editor.style.display='none';listView.style.display='block';renderList();renderCard();}
-  function accountRow(label='',value=''){
-    const row=document.createElement('div');row.className='cbAccountRow';
-    row.innerHTML=`<input class="cbAccountLabel" maxlength="30" placeholder="Service" value="${esc(label)}"><input class="cbAccountValue" maxlength="120" placeholder="@handle or link" value="${esc(value)}"><button class="cbRemoveAccount">×</button>`;
-    row.querySelector('.cbRemoveAccount').onclick=()=>row.remove();accountsBox.appendChild(row);
-  }
-  function openEditor(id){
-    editingId=id||null;
-    const p=profiles.find(x=>x.id===id)||{name:'',username:'',bio:'',photo:'',accounts:[]};
-    draftPhoto=p.photo||'';nameInput.value=p.name||'';userInput.value=p.username||'';bioInput.value=p.bio||'';
-    accountsBox.innerHTML='';(p.accounts||[]).forEach(a=>accountRow(a.label,a.value));
-    $('cbDeleteProfile').style.display=id?'block':'none';
-    listView.style.display='none';editor.style.display='block';renderEditorAvatar();
-  }
-  function renderEditorAvatar(){$('cbEditAvatar').innerHTML=draftPhoto?`<div class="cbAvatar"><img src="${draftPhoto}" alt=""></div>`:`<div class="cbAvatar">👤</div>`}
-  async function resizePhoto(file){
-    const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
-    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=data});
-    const size=320,c=document.createElement('canvas');c.width=size;c.height=size;const ctx=c.getContext('2d');
-    const scale=Math.max(size/img.width,size/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
-    return c.toDataURL('image/jpeg',.82);
-  }
-  function collectAccounts(){return [...accountsBox.querySelectorAll('.cbAccountRow')].map(r=>({label:r.querySelector('.cbAccountLabel').value.trim(),value:r.querySelector('.cbAccountValue').value.trim()})).filter(a=>a.label||a.value)}
-
-  $('cbProfileCard').onclick=()=>{settingsOverlay.classList.remove('open');overlay.classList.add('open');showList()};
-  $('cbProfilesBack').onclick=()=>{if(editor.style.display==='block')showList();else overlay.classList.remove('open')};
-  $('cbProfilesNew').onclick=()=>openEditor(null);$('cbAddProfile').onclick=()=>openEditor(null);$('cbCancelEdit').onclick=showList;$('cbAddAccount').onclick=()=>accountRow();
-  $('cbChoosePhoto').onclick=()=>$('cbPhotoInput').click();
-  $('cbPhotoInput').onchange=async()=>{const f=$('cbPhotoInput').files?.[0];if(!f)return;try{draftPhoto=await resizePhoto(f);renderEditorAvatar()}catch(e){console.error('Profile photo error',e)}$('cbPhotoInput').value=''};
-  $('cbSaveProfile').onclick=()=>{
-    const name=nameInput.value.trim();if(!name){nameInput.focus();return}
-    let username=userInput.value.trim();if(username&&username[0]!=='@'&&!/^https?:\/\//i.test(username))username='@'+username;
-    const obj={id:editingId||uid(),name,username,bio:bioInput.value.trim(),photo:draftPhoto,accounts:collectAccounts()};
-    const idx=profiles.findIndex(p=>p.id===editingId);if(idx>=0)profiles[idx]=obj;else profiles.push(obj);
-    if(!activeId)activeId=obj.id;editingId=obj.id;save();showList();
-  };
-  $('cbDeleteProfile').onclick=()=>{
-    if(!editingId)return;const p=profiles.find(x=>x.id===editingId);if(!confirm(`Delete ${p?.name||'this profile'}?`))return;
-    profiles=profiles.filter(x=>x.id!==editingId);if(activeId===editingId)activeId=profiles[0]?.id||null;save();showList();
-  };
-
-  // Make the active profile visible in comments without changing the existing comment storage format.
-  const originalRenderComments=window.renderComments;
-  if(typeof originalRenderComments==='function'){
-    window.renderComments=function(){
-      originalRenderComments();
-      const p=activeProfile();if(!p)return;
-      document.querySelectorAll('#cmtList .cmt .who').forEach(el=>el.textContent=p.name||'You');
-    };
-  }
-
-  load();renderCard();
-})();
+t.toggle('on',v);restartAuto()}
+autoBtn.onclick=()=>setAuto(!auto);autoSwitch.onclick=()=>setAuto(!auto);
+loopSwitch.onclick=()=>{loop=!loop;loopSwitch.classList.toggle('on',loop)};
+muteSwitch.onclick=()=>{defaultMuted=!defaultMuted;muteSwitch.classList.toggle('on',defaultMuted);feed.querySelectorAll('video').forEach(v=>v.muted=defaultMuted)};
+autoplaySwitch.onclick=()=>{autoplay=!autoplay;autoplaySwitch.classList.toggle('on',autoplay)};
+photoRange.oninput=()=>photoVal.textContent=photoRange.value+' seconds';
+function restartAuto(){clearTimeout(autoTimer);if(!auto)return;autoTimer=setTimeout(()=>{const slides=[...feed.children],idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight));if(idx<slides.length-1)slides[idx+1].scrollIntoView({behavior:'smooth'});else if(loop)slides[0]?.scrollIntoView({behavior:'smooth'});restartAuto()},+photoRange.value*1000)}
+let viewTimer;
+feed.addEventListener('scroll',()=>{clearTimeout(viewTimer);viewTimer=setTimeout(()=>{if(!items.length)return;const idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight)),it=items[idx];if(!it)return;const key=itemKey(it);if(history[0]!==key)logActivity('view','Viewed media',it.name);history=[key,...history.filter(x=>x!==key)].slice(0,50);if(autoplay){feed.querySelectorAll('video').forEach((v,i)=>{if(i===idx)v.play().catch(()=>{});else v.pause()})}if(auto){clearTimeout(autoTimer);autoTimer=setTimeout(restartAuto,400)}},150)});
+function openSheet(id){$(id).classList.add('open')}function closeSheets(){document.querySelectorAll('.sheet-wrap').forEach(x=>x.classList.remove('open'))}
+document.addEventListener('click',e=>{if(e.target.classList.contains('close-sheet'))closeSheets();if(e.target.classList.contains('sheet-wrap'))closeSheets()});
+function openComments(it){currentItem=it;renderComments();openSheet('commentsSheet');setTimeout(()=>$('commentInput').focus(),100)}
+function renderComments(){const key=itemKey(currentItem),list=comments[key]||[];$('commentList').innerHTML=list.length?list.map(c=>`<div class="comment"><b>${esc(profile.name||'You')}</b>${esc(c)}</div>`).join(''):'<div class="empty" style="padding:30px 10px">No comments yet.</div>'}
+$('commentSend').onclick=()=>{const v=$('commentInput').value.trim();if(!v||!currentItem)return;const key=itemKey(currentItem);(comments[key]??=[]).push(v);logActivity('comment','Commented on media',currentItem.name);$('commentInput').value='';renderComments();renderFeed()};
+$('commentInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('commentSend').click()});
+$('addToAlbumBtn').onclick=()=>{renderAlbumChoices();closeSheets();openSheet('albumSheet')};
+$('toggleLikeMoreBtn').onclick=()=>{if(!currentItem)return;const k=itemKey(currentItem);liked[k]=!liked[k];logActivity('like',liked[k]?'Liked media':'Unliked media',currentItem.name);closeSheets();renderFeed();renderLibrary();updateStats();toastMsg(liked[k]?'Liked':'Unliked')};
+$('deleteMediaBtn').onclick=()=>{if(!currentItem)return;const k=itemKey(currentItem);items=items.filter(x=>x!==currentItem);Object.keys(albums).forEach(a=>albums[a]=albums[a].filter(x=>x!==k));logActivity('remove','Removed media from session',currentItem.name);currentItem=null;closeSheets();renderFeed();renderLibrary();updateStats();toastMsg('Removed from session')};
+function renderAlbumChoices(){const box=$('albumChoices'),names=Object.keys(albums);box.innerHTML=names.map(n=>`<button class="album-choice" data-album="${esc(n)}">${esc(n)} <span style="float:right;color:var(--muted)">${albums[n].length}</span></button>`).join('')||'<div style="color:var(--muted);padding:8px 0">No albums yet.</div>';box.querySelectorAll('[data-album]').forEach(b=>b.onclick=()=>{const n=b.dataset.album,k=itemKey(currentItem);if(!albums[n].includes(k))albums[n].push(k);logActivity('album','Added media to album',n);closeSheets();updateStats();toastMsg('Added to '+n)})}
+$('createAlbumBtn').onclick=()=>{const n=$('albumNameInput').value.trim();if(!n||!currentItem)return;albums[n]??=[];const k=itemKey(currentItem);if(!albums[n].includes(k))albums[n].push(k);$('albumNameInput').value='';logActivity('album','Created album',n);closeSheets();updateStats();toastMsg('Album created')};
+$('settingsBtn').onclick=()=>openSheet('settingsSheet');$('editProfileBtn').onclick=()=>openSheet('editProfileSheet');$('pickProfilePhoto').onclick=()=>profileInput.click();
+$('addAccountBtn').onclick=()=>{$('accountServiceInput').value='';$('accountValueInput').value='';openSheet('accountSheet')};
+$('saveAccountBtn').onclick=()=>{const service=$('accountServiceInput').value.trim(),value=$('accountValueInput').value.trim();if(!service||!value){toastMsg('Enter both fields');return}profile.accounts.push({service,value});saveProfile();logActivity('account','Added account',service+' • '+value);closeSheets();toastMsg('Account added')};
+profileInput.onchange=()=>{const f=profileInput.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{profile.picture=r.result;saveProfile()};r.readAsDataURL(f)};
+$('saveProfileBtn').onclick=()=>{profile.name=nameInput.value.trim()||'CornBox User';profile.handle=handleInput.value.trim()||'@cornbox';profile.bio=bioInput.value.trim();saveProfile();logActivity('profile','Updated profile',profile.name);closeSheets();toastMsg('Profile saved')};
+$('resetLikesBtn').onclick=()=>{liked={};logActivity('settings','Cleared all likes');renderFeed();renderLibrary();updateStats();toastMsg('Likes cleared')};
+updateProfileUI();renderFeed();renderLibrary();if(IS_NATIVE_IOS)postNative('listMedia');
 </script>
+</body>
+</html>
