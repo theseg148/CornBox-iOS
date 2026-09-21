@@ -4,7 +4,7 @@ import SwiftUI
 struct CornBoxApp: App {
     var body: some Scene {
         WindowGroup {
-            RootViewV5()
+            RootViewV6()
                 .preferredColorScheme(.dark)
         }
     }
