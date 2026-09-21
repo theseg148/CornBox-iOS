@@ -20,25 +20,16 @@ jobs:
 
       - name: Prepare CornBox app icon
         run: |
-          python3 -m venv .icon-venv
-          . .icon-venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install pillow
           mkdir -p CornBox/Resources/Assets.xcassets/AppIcon.appiconset
-          python - <<'PY'
-          from PIL import Image
-          from pathlib import Path
-          src = Path('CornBox/Resources/AppIconSource.jpg')
-          out = Path('CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Icon-1024.png')
-          img = Image.open(src).convert('RGB').resize((1024, 1024), Image.Resampling.LANCZOS)
-          img.save(out, format='PNG', optimize=True)
-          PY
+          cat > /tmp/cornbox-icon.b64 <<'EOF'
+          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
+          EOF
+          base64 --decode /tmp/cornbox-icon.b64 > /tmp/cornbox-icon.png
+          file /tmp/cornbox-icon.png
+          sips -z 1024 1024 /tmp/cornbox-icon.png --out CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Icon-1024.png
           cat > CornBox/Resources/Assets.xcassets/Contents.json <<'EOF'
           {
-            "info" : {
-              "author" : "xcode",
-              "version" : 1
-            }
+            "info" : { "author" : "xcode", "version" : 1 }
           }
           EOF
           cat > CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json <<'EOF'
@@ -51,10 +42,7 @@ jobs:
                 "size" : "1024x1024"
               }
             ],
-            "info" : {
-              "author" : "xcode",
-              "version" : 1
-            }
+            "info" : { "author" : "xcode", "version" : 1 }
           }
           EOF
 
