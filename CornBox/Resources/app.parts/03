@@ -1,136 +1,35 @@
-d="autoplaySwitch" class="switch on"></button>
-        </div>
-        <div class="sheet-row">
-          <div>
-            <b>Reset likes</b>
-            <small>Clear all liked media</small>
-          </div>
-          <button id="resetLikesBtn" class="big-btn" style="height:36px;padding:0 12px">Reset</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="editProfileSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <h3>Edit profile</h3>
-        <button class="round-btn close-sheet">×</button>
-      </div>
-
-      <div class="sheet-content">
-        <div class="sheet-row">
-          <div>
-            <b>Profile picture</b>
-            <small>Choose an image</small>
-          </div>
-          <button id="pickProfilePhoto" class="big-btn" style="height:36px;padding:0 14px">Choose</button>
-        </div>
-
-        <div class="sheet-row" style="display:block">
-          <b>Display name</b>
-          <input id="nameInput" class="field" value="CornBox User">
-        </div>
-
-        <div class="sheet-row" style="display:block">
-          <b>Username</b>
-          <input id="handleInput" class="field" value="@cornbox">
-        </div>
-
-        <div class="sheet-row" style="display:block">
-          <b>Description</b>
-          <textarea id="bioInput" class="field" rows="3" style="resize:none">Your private media feed. Everything stays on this device.</textarea>
-        </div>
-
-        <button id="saveProfileBtn" class="big-btn primary" style="width:100%;margin-top:14px">Save profile</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="accountSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <h3>Add account</h3>
-        <button class="round-btn close-sheet">×</button>
-      </div>
-      <div class="sheet-content">
-        <div class="sheet-row" style="display:block">
-          <b>Service</b>
-          <input id="accountServiceInput" class="field" placeholder="Instagram, TikTok, GitHub...">
-        </div>
-        <div class="sheet-row" style="display:block">
-          <b>Handle or link</b>
-          <input id="accountValueInput" class="field" placeholder="@username or https://...">
-        </div>
-        <button id="saveAccountBtn" class="big-btn primary" style="width:100%;margin-top:14px">Add account</button>
-      </div>
-    </div>
-  </div>
-
-
-  <div id="commentsSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head"><h3>Comments</h3><button class="round-btn close-sheet">×</button></div>
-      <div id="commentList" class="comment-list"></div>
-      <div class="comment-form">
-        <input id="commentInput" maxlength="200" placeholder="Add a comment...">
-        <button id="commentSend">Post</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="moreSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head"><h3>Media options</h3><button class="round-btn close-sheet">×</button></div>
-      <div class="sheet-content more-menu">
-        <button id="addToAlbumBtn">Add to album</button>
-        <button id="toggleLikeMoreBtn">Like / Unlike</button>
-        <button id="deleteMediaBtn" class="danger">Remove from this session</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="albumSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head"><h3>Albums</h3><button class="round-btn close-sheet">×</button></div>
-      <div class="sheet-content">
-        <div id="albumChoices"></div>
-        <div class="sheet-row" style="display:block">
-          <b>Create album</b>
-          <input id="albumNameInput" class="field" maxlength="40" placeholder="Album name">
-          <button id="createAlbumBtn" class="big-btn primary" style="width:100%;margin-top:10px">Create & add</button>
-        </div>
-      </div>
-    </div>
-  </div>
+<div style="color:var(--muted);font-size:13px;padding-bottom:8px">Assign the newly imported media to a creator.</div><div id="creatorChoices"></div><button id="createAndAssignBtn" class="big-btn primary" style="width:100%;margin-top:12px">Create new creator</button><button id="skipAssignBtn" class="big-btn" style="width:100%;margin-top:10px">Leave unassigned</button></div></div></div>
 
   <input id="importInput" type="file" multiple accept="video/*,image/*">
-  <input id="profileInput" type="file" accept="image/*">
-
+  <input id="creatorPhotoInput" type="file" accept="image/*">
   <div id="toast" class="toast"></div>
 </div>
-
 <script>
+const IS_NATIVE_IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cornbox);
+function postNative(action,payload={}){if(!IS_NATIVE_IOS)return false;window.webkit.messageHandlers.cornbox.postMessage({action,...payload});return true;}
 const $=id=>document.getElementById(id);
-const feed=$('feed'),libraryGrid=$('libraryGrid'),importInput=$('importInput'),profileInput=$('profileInput');
-const autoBtn=$('autoBtn'),autoSwitch=$('autoSwitch'),loopSwitch=$('loopSwitch'),muteSwitch=$('muteSwitch'),autoplaySwitch=$('autoplaySwitch');
-const photoRange=$('photoRange'),photoVal=$('photoVal'),toast=$('toast');
-const profileName=$('profileName'),profileHandle=$('profileHandle'),profileBio=$('profileBio'),profilePic=$('profilePic'),topProfile=$('topProfile');
-const nameInput=$('nameInput'),handleInput=$('handleInput'),bioInput=$('bioInput'),librarySearch=$('librarySearch'),sortBtn=$('sortBtn');
-const IS_NATIVE_IOS=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.cornbox);
-function postNative(action,payload={}){if(!IS_NATIVE_IOS)return false;window.webkit.messageHandlers.cornbox.postMessage({action,...payload});return true}
-
-
-let items=[],liked={},comments={},albums={},history=[],activity=[];
-window.cornboxNativeSetMedia=function(nativeItems){
-  if(!Array.isArray(nativeItems))return;
-  items=nativeItems.filter(x=>x&&(x.type==='video'||x.type==='image')&&x.url).map(x=>({name:x.name||'media',type:x.type,url:x.url}));
-  renderFeed();renderLibrary();updateStats();
-  if(items.length)openScreen('home');
-};
-window.cornboxNativeImp
+const feed=$('feed'),importInput=$('importInput'),creatorPhotoInput=$('creatorPhotoInput'),autoBtn=$('autoBtn'),autoSwitch=$('autoSwitch'),loopSwitch=$('loopSwitch'),muteSwitch=$('muteSwitch'),autoplaySwitch=$('autoplaySwitch'),bulkAssignSwitch=$('bulkAssignSwitch'),photoRange=$('photoRange'),photoVal=$('photoVal'),toast=$('toast'),libraryGrid=$('libraryGrid'),librarySearch=$('librarySearch'),sortBtn=$('sortBtn');
+let items=[];
+let liked=JSON.parse(localStorage.getItem('cb_likes_v2')||'{}');
+let comments=JSON.parse(localStorage.getItem('cb_comments_v2')||'{}');
+let albums=JSON.parse(localStorage.getItem('cb_albums_v2')||'{}');
+let history=JSON.parse(localStorage.getItem('cb_history_v2')||'[]');
+let activity=JSON.parse(localStorage.getItem('cb_activity_v2')||'[]');
+let creators=JSON.parse(localStorage.getItem('cb_creators_v2')||'[]');
+let assignments=JSON.parse(localStorage.getItem('cb_creator_assignments_v2')||'{}');
+let creatorDraftPhoto=null,editingCreatorId=null,currentItem=null,pendingImportedIds=[],nativeImportExpected=false;
+let currentFilter='all',sortMode='newest',auto=false,loop=true,defaultMuted=false,autoplay=true,bulkAssign=true,autoTimer=null;
+function toastMsg(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastMsg.t);toastMsg.t=setTimeout(()=>toast.classList.remove('show'),1700)}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function uuid(){return crypto.randomUUID?crypto.randomUUID():'id'+Date.now()+Math.random().toString(16).slice(2)}
+function saveState(){localStorage.setItem('cb_likes_v2',JSON.stringify(liked));localStorage.setItem('cb_comments_v2',JSON.stringify(comments));localStorage.setItem('cb_albums_v2',JSON.stringify(albums));localStorage.setItem('cb_history_v2',JSON.stringify(history));localStorage.setItem('cb_activity_v2',JSON.stringify(activity));localStorage.setItem('cb_creators_v2',JSON.stringify(creators));localStorage.setItem('cb_creator_assignments_v2',JSON.stringify(assignments));}
+function logActivity(type,title,detail=''){const icons={like:'♥',comment:'◌',import:'＋',view:'▶',album:'▤',creator:'◉',assign:'@',remove:'−',shuffle:'⤨'};activity.unshift({type,title,detail,time:Date.now(),icon:icons[type]||'•'});activity=activity.slice(0,100);saveState();if($('activityScreen').classList.contains('open'))renderActivity()}
+function timeAgo(ts){const s=Math.max(1,Math.floor((Date.now()-ts)/1000));if(s<60)return s+'s ago';const m=Math.floor(s/60);if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
+function creatorById(id){return creators.find(c=>c.id===id)||null}
+function creatorInitial(name){return ((name||'C').trim()[0]||'C').toUpperCase()}
+function creatorMediaCount(id){return items.filter(x=>x.creatorId===id).length}
+function updateStats(){$('statMedia').textContent=items.length;$('statCreators').textContent=creators.length;$('statAssigned').textContent=items.filter(x=>x.creatorId).length;renderCreatorManager()}
+function renderCreatorManager(){const box=$('creatorManagerList'); if(!creators.length){box.innerHTML='<div style="color:var(--muted);font-size:13px;padding:4px 2px">No creators yet. Make one, then bulk-assign imported videos to them.</div>'; return;} box.innerHTML=creators.map(c=>`<div class="creator-card"><div class="pic">${c.photo?`<img src="${c.photo}" alt="">`:esc(creatorInitial(c.name))}</div><div class="meta"><b>${esc(c.name)}</b><span>${esc(c.handle||'')}</span><small>${creatorMediaCount(c.id)} media${c.bio?' • '+esc(c.bio):''}</small></div><button data-edit-creator="${c.id}">Edit</button></div>`).join(''); box.querySelectorAll('[data-edit-creator]').forEach(b=>b.onclick=()=>openCreatorEditor(b.dataset.editCreator));}
+function renderActivity(){const box=$('activityList'); if(!activity.length){box.innerHTML='<div class="activity-empty"><div class="big">◴</div><h3>No activity yet</h3><div>Imports, creator assignments, likes and comments show up here.</div></div>'; return;} box.innerHTML=activity.map(a=>`<div class="activity-item"><div class="activity-ico">${esc(a.icon)}</div><div class="activity-copy"><b>${esc(a.title)}</b>${a.detail?`<span>${esc(a.detail)}</span>`:''}<span>${timeAgo(a.time)}</span></div></div>`).join('')}
+function creatorMarkup(item){const c=creatorById(item?.creatorId); if(!c) return `<div class="creator-row"><div class="creator-badge">?</div><div><div class="creator-name">Unassigned</div><div class="creator-handle">Assign a creator to this media</div></div></div>`; return `<div class="creator-row"><div class="creator-badge">${c.photo?`<img src="${c.photo}" alt="">`:esc(creatorInitial(c.name))}</div><div><div class="creator-name">${esc(c.name)}</div><div class="creator-handle">${esc(c.handle||'')}</div></div></div>`}
+function makeSlide(item,index){const slide=document.createElement('section'); slide.className='slide'; slide.dataset.index=index; if(item){const m=document.createElement(item.type==='video'?'video':'img'); m.className='media'; m.src=item.url; if(item.type==='video'){m.playsInline=true;m.preload='metadata';m.muted=defaultMuted;m.addEventListener('cli
