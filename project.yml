@@ -10,15 +10,16 @@ targets:
     platform: iOS
     sources:
       - path: CornBox/Sources
-    resources:
       - path: CornBox/Resources/app.html
+        buildPhase: resources
       - path: CornBox/Resources/Assets.xcassets
+        buildPhase: resources
     info:
       path: CornBox/Info.plist
       properties:
         CFBundleDisplayName: CornBox
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "2"
+        CFBundleVersion: "3"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
