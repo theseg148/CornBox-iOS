@@ -1,0 +1,180 @@
+  enabled: false,
+  photoDelay: 6,
+  videoMode: 'finish',   // 'finish' | 'fixed'
+  videoDelay: 6,
+  capDelay: 0,           // 0 = off
+  loop: false
+}, JSON.parse(localStorage.getItem('rb_settings') || '{}'));
+
+function saveLikes() { localStorage.setItem('rb_likes', JSON.stringify(likes)); }
+function saveComments() { localStorage.setItem('rb_comments', JSON.stringify(comments)); }
+function saveAlbums() { localStorage.setItem('rb_albums', JSON.stringify(albums)); }
+function saveSettings() { localStorage.setItem('rb_settings', JSON.stringify(settings)); }
+
+function extOf(name) { return (name.split('.').pop() || '').toLowerCase(); }
+function fileToItem(file) {
+  const ext = extOf(file.name);
+  if (!VIDEO_EXT.includes(ext) && !IMAGE_EXT.includes(ext)) return null;
+  return { url: URL.createObjectURL(file), type: VIDEO_EXT.includes(ext) ? 'video' : 'image', name: file.name };
+}
+function addFiles(fileList) {
+  const newItems = Array.from(fileList).map(fileToItem).filter(Boolean);
+  allItems = allItems.concat(newItems);
+  return newItems.length;
+}
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+function showMediaError(slide, item, media) {
+  if (slide.querySelector('.media-error')) return; // don't stack duplicates
+  const codes = {
+    1: 'Loading was interrupted.',
+    2: 'Network error while loading.',
+    3: "This file is corrupted, or your browser can't decode it.",
+    4: "Unsupported or damaged media file. If it will not play on this iPhone, try H.264 MP4."
+  };
+  const code = media.error ? media.error.code : 4;
+  const box = document.createElement('div');
+  box.className = 'media-error';
+  box.innerHTML = `<div class="media-error-icon">⚠️</div>
+    <div class="media-error-title">Can't play "${escapeHtml(item.name)}"</div>
+    <div class="media-error-msg">${codes[code] || codes[4]}</div>`;
+  slide.appendChild(box);
+  // don't let auto-scroll get stuck waiting forever on a video that will never load
+  if (settings.enabled && slide === currentSlide) {
+    clearTimeout(autoscrollTimer);
+    autoscrollTimer = setTimeout(() => advance(slide), 2000);
+  }
+}
+
+function currentList() {
+  if (currentTab === 'liked') return allItems.filter(i => likes[i.name]);
+  if (currentTab === 'photos') return allItems.filter(i => i.type === 'image');
+  if (currentTab === 'videos') return allItems.filter(i => i.type === 'video');
+  if (currentTab === 'albums') {
+    if (!currentAlbum) return [];
+    const names = albums[currentAlbum] || [];
+    return allItems.filter(i => names.includes(i.name));
+  }
+  return allItems;
+}
+
+function launch() {
+  if (allItems.length === 0) {
+    splash.style.display = 'none';
+    emptyMsg.textContent = 'No media found in that folder.';
+    emptyEl.style.display = 'flex';
+    return;
+  }
+  splash.style.display = 'none';
+  emptyEl.style.display = 'none';
+  appEl.style.display = 'block';
+  shuffle(allItems);
+  renderFeed();
+}
+
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  currentTab = t.dataset.tab;
+  albumChipsEl.style.display = currentTab === 'albums' ? 'flex' : 'none';
+  if (currentTab === 'albums') renderAlbumChips();
+  renderFeed();
+  feedEl.scrollTo({ top: 0 });
+}));
+
+function renderAlbumChips() {
+  const names = Object.keys(albums);
+  if (!currentAlbum || !names.includes(currentAlbum)) currentAlbum = names[0] || null;
+  albumChipsEl.innerHTML = '';
+  if (names.length === 0) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:12px; opacity:0.5; padding:6px 0;';
+    hint.textContent = 'No albums yet — use the 📁 button on a video to create one.';
+    albumChipsEl.appendChild(hint);
+    return;
+  }
+  names.forEach(name => {
+    const chip = document.createElement('button');
+    chip.className = 'albumChip' + (name === currentAlbum ? ' active' : '');
+    chip.textContent = `${name} (${(albums[name]||[]).length})`;
+    chip.addEventListener('click', () => { currentAlbum = name; renderAlbumChips(); renderFeed(); feedEl.scrollTo({top:0}); });
+    albumChipsEl.appendChild(chip);
+  });
+}
+
+function renderFeed() {
+  const list = shuffle(currentList().slice()); // fresh shuffle of a copy every time — never reuse a stale order
+  feedEl.innerHTML = '';
+  if (list.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;opacity:0.6;text-align:center;padding:20px;';
+    const msgs = {
+      liked: 'Nothing liked yet — double-tap a video to like it.',
+      photos: 'No photos loaded.',
+      videos: 'No videos loaded.',
+      albums: Object.keys(albums).length ? 'This album is empty — add items with the 📁 button.' : 'No albums yet — use the 📁 button on any item to create one.'
+    };
+    msg.textContent = msgs[currentTab] || 'No media loaded.';
+    feedEl.appendChild(msg);
+    return;
+  }
+  list.forEach((item) => feedEl.appendChild(buildSlide(item)));
+  setupObserver();
+}
+
+function buildSlide(item) {
+  const slide = document.createElement('div');
+  slide.className = 'slide';
+
+  const media = item.type === 'video'
+    ? Object.assign(document.createElement('video'), { loop: true, playsInline: true, controls: false, muted, preload: 'none' })
+    : Object.assign(document.createElement('img'), { loading: 'lazy' });
+  media.dataset.src = item.url;
+  slide.appendChild(media);
+
+  // double tap to like, single tap to pause (video only)
+  let lastTap = 0;
+  slide.addEventListener('click', (e) => {
+    if (e.target.closest('.actions')) return;
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      toggleLike(item.name, true);
+      burstHeart(slide);
+    } else if (item.type === 'video') {
+      media.paused ? media.play() : media.pause();
+    }
+    lastTap = now;
+  });
+
+  if (item.type === 'video') {
+    const progress = document.createElement('div');
+    progress.className = 'progress';
+    const track = document.createElement('div');
+    track.className = 'progress-track';
+    const fill = document.createElement('div');
+    fill.className = 'progress-fill';
+    track.appendChild(fill);
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot';
+    track.appendChild(dot);
+    progress.appendChild(track);
+    slide.appendChild(progress);
+
+    media.addEventListener('timeupdate', () => {
+      if (media.duration) {
+        const pct = media.currentTime / media.duration * 100;
+        fill.style.width = pct + '%';
+        dot.style.left = pct + '%';
+      }
+    });
+
+    const spinner = document.createElement('div');
+    spinner.className = 'buffer-spinner';
+    spinner.style.display = 'none';
+    slide.appendChild(spinner);
+
+    const seekTo = (clientX) => {
