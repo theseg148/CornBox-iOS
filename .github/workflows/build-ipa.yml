@@ -20,8 +20,10 @@ jobs:
 
       - name: Prepare CornBox app icon
         run: |
-          python3 -m pip install --user pillow
-          python3 - <<'PY'
+          python3 -m venv .icon-venv
+          . .icon-venv/bin/activate
+          python -m pip install pillow
+          python - <<'PY'
           from pathlib import Path
           from PIL import Image
           import json
