@@ -1,30 +1,44 @@
-t.toggle('on',v);restartAuto()}
-autoBtn.onclick=()=>setAuto(!auto);autoSwitch.onclick=()=>setAuto(!auto);
-loopSwitch.onclick=()=>{loop=!loop;loopSwitch.classList.toggle('on',loop)};
-muteSwitch.onclick=()=>{defaultMuted=!defaultMuted;muteSwitch.classList.toggle('on',defaultMuted);feed.querySelectorAll('video').forEach(v=>v.muted=defaultMuted)};
-autoplaySwitch.onclick=()=>{autoplay=!autoplay;autoplaySwitch.classList.toggle('on',autoplay)};
-photoRange.oninput=()=>photoVal.textContent=photoRange.value+' seconds';
-function restartAuto(){clearTimeout(autoTimer);if(!auto)return;autoTimer=setTimeout(()=>{const slides=[...feed.children],idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight));if(idx<slides.length-1)slides[idx+1].scrollIntoView({behavior:'smooth'});else if(loop)slides[0]?.scrollIntoView({behavior:'smooth'});restartAuto()},+photoRange.value*1000)}
-let viewTimer;
-feed.addEventListener('scroll',()=>{clearTimeout(viewTimer);viewTimer=setTimeout(()=>{if(!items.length)return;const idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight)),it=items[idx];if(!it)return;const key=itemKey(it);if(history[0]!==key)logActivity('view','Viewed media',it.name);history=[key,...history.filter(x=>x!==key)].slice(0,50);if(autoplay){feed.querySelectorAll('video').forEach((v,i)=>{if(i===idx)v.play().catch(()=>{});else v.pause()})}if(auto){clearTimeout(autoTimer);autoTimer=setTimeout(restartAuto,400)}},150)});
-function openSheet(id){$(id).classList.add('open')}function closeSheets(){document.querySelectorAll('.sheet-wrap').forEach(x=>x.classList.remove('open'))}
-document.addEventListener('click',e=>{if(e.target.classList.contains('close-sheet'))closeSheets();if(e.target.classList.contains('sheet-wrap'))closeSheets()});
-function openComments(it){currentItem=it;renderComments();openSheet('commentsSheet');setTimeout(()=>$('commentInput').focus(),100)}
-function renderComments(){const key=itemKey(currentItem),list=comments[key]||[];$('commentList').innerHTML=list.length?list.map(c=>`<div class="comment"><b>${esc(profile.name||'You')}</b>${esc(c)}</div>`).join(''):'<div class="empty" style="padding:30px 10px">No comments yet.</div>'}
-$('commentSend').onclick=()=>{const v=$('commentInput').value.trim();if(!v||!currentItem)return;const key=itemKey(currentItem);(comments[key]??=[]).push(v);logActivity('comment','Commented on media',currentItem.name);$('commentInput').value='';renderComments();renderFeed()};
-$('commentInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('commentSend').click()});
-$('addToAlbumBtn').onclick=()=>{renderAlbumChoices();closeSheets();openSheet('albumSheet')};
-$('toggleLikeMoreBtn').onclick=()=>{if(!currentItem)return;const k=itemKey(currentItem);liked[k]=!liked[k];logActivity('like',liked[k]?'Liked media':'Unliked media',currentItem.name);closeSheets();renderFeed();renderLibrary();updateStats();toastMsg(liked[k]?'Liked':'Unliked')};
-$('deleteMediaBtn').onclick=()=>{if(!currentItem)return;const k=itemKey(currentItem);items=items.filter(x=>x!==currentItem);Object.keys(albums).forEach(a=>albums[a]=albums[a].filter(x=>x!==k));logActivity('remove','Removed media from session',currentItem.name);currentItem=null;closeSheets();renderFeed();renderLibrary();updateStats();toastMsg('Removed from session')};
-function renderAlbumChoices(){const box=$('albumChoices'),names=Object.keys(albums);box.innerHTML=names.map(n=>`<button class="album-choice" data-album="${esc(n)}">${esc(n)} <span style="float:right;color:var(--muted)">${albums[n].length}</span></button>`).join('')||'<div style="color:var(--muted);padding:8px 0">No albums yet.</div>';box.querySelectorAll('[data-album]').forEach(b=>b.onclick=()=>{const n=b.dataset.album,k=itemKey(currentItem);if(!albums[n].includes(k))albums[n].push(k);logActivity('album','Added media to album',n);closeSheets();updateStats();toastMsg('Added to '+n)})}
-$('createAlbumBtn').onclick=()=>{const n=$('albumNameInput').value.trim();if(!n||!currentItem)return;albums[n]??=[];const k=itemKey(currentItem);if(!albums[n].includes(k))albums[n].push(k);$('albumNameInput').value='';logActivity('album','Created album',n);closeSheets();updateStats();toastMsg('Album created')};
-$('settingsBtn').onclick=()=>openSheet('settingsSheet');$('editProfileBtn').onclick=()=>openSheet('editProfileSheet');$('pickProfilePhoto').onclick=()=>profileInput.click();
-$('addAccountBtn').onclick=()=>{$('accountServiceInput').value='';$('accountValueInput').value='';openSheet('accountSheet')};
-$('saveAccountBtn').onclick=()=>{const service=$('accountServiceInput').value.trim(),value=$('accountValueInput').value.trim();if(!service||!value){toastMsg('Enter both fields');return}profile.accounts.push({service,value});saveProfile();logActivity('account','Added account',service+' • '+value);closeSheets();toastMsg('Account added')};
-profileInput.onchange=()=>{const f=profileInput.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{profile.picture=r.result;saveProfile()};r.readAsDataURL(f)};
-$('saveProfileBtn').onclick=()=>{profile.name=nameInput.value.trim()||'CornBox User';profile.handle=handleInput.value.trim()||'@cornbox';profile.bio=bioInput.value.trim();saveProfile();logActivity('profile','Updated profile',profile.name);closeSheets();toastMsg('Profile saved')};
-$('resetLikesBtn').onclick=()=>{liked={};logActivity('settings','Cleared all likes');renderFeed();renderLibrary();updateStats();toastMsg('Likes cleared')};
-updateProfileUI();renderFeed();renderLibrary();if(IS_NATIVE_IOS)postNative('listMedia');
+id]; saveState(); logActivity('like',liked[currentItem.id]?'Liked media':'Unliked media',currentItem.name); closeSheets(); renderFeed(); renderLibrary(); toastMsg(liked[currentItem.id]?'Liked':'Unliked')}; $('deleteMediaBtn').onclick=()=>{if(!currentItem)return; const removedName=currentItem.name; items=items.filter(x=>x!==currentItem); Object.keys(albums).forEach(a=>albums[a]=albums[a].filter(x=>x!==currentItem.id)); delete assignments[currentItem.id]; saveState(); logActivity('remove','Removed media from session',removedName); currentItem=null; closeSheets(); renderFeed(); renderLibrary(); toastMsg('Removed from session')};
+$('changeCreatorBtn').onclick=()=>{closeSheets(); openAssignCreatorSheet(true)};
+function renderAlbumChoices(){const box=$('albumChoices'), names=Object.keys(albums); box.innerHTML=names.map(n=>`<button class="album-choice" data-album="${esc(n)}">${esc(n)} <span style="float:right;color:var(--muted)">${albums[n].length}</span></button>`).join('')||'<div style="color:var(--muted);padding:8px 0">No albums yet.</div>'; box.querySelectorAll('[data-album]').forEach(b=>b.onclick=()=>{const n=b.dataset.album; if(!albums[n].includes(currentItem.id))albums[n].push(currentItem.id); saveState(); logActivity('album','Added media to album',n); closeSheets(); toastMsg('Added to '+n)})}
+$('addToAlbumBtn').onclick=()=>{renderAlbumChoices(); closeSheets(); openSheet('albumSheet')}; $('createAlbumBtn').onclick=()=>{const n=$('albumNameInput').value.trim(); if(!n||!currentItem)return; albums[n]??=[]; if(!albums[n].includes(currentItem.id))albums[n].push(currentItem.id); saveState(); $('albumNameInput').value=''; logActivity('album','Created album',n); closeSheets(); updateStats(); toastMsg('Album created')};
+function openCreatorEditor(id=null){editingCreatorId=id; creatorDraftPhoto=null; if(id){const c=creatorById(id); $('creatorSheetTitle').textContent='Edit creator'; $('creatorNameInput').value=c?.name||''; $('creatorHandleInput').value=c?.handle||''; $('creatorBioInput').value=c?.bio||'';} else {$('creatorSheetTitle').textContent='Create creator'; $('creatorNameInput').value=''; $('creatorHandleInput').value=''; $('creatorBioInput').value='';} openSheet('creatorSheet')}
+$('newCreatorBtn').onclick=()=>openCreatorEditor(); $('addCreatorMainBtn').onclick=()=>openCreatorEditor(); $('createAndAssignBtn').onclick=()=>{closeSheets(); openCreatorEditor()}; $('pickCreatorPhoto').onclick=()=>creatorPhotoInput.click(); creatorPhotoInput.onchange=()=>{const f=creatorPhotoInput.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{creatorDraftPhoto=r.result; toastMsg('Creator photo selected')}; r.readAsDataURL(f)};
+$('saveCreatorBtn').onclick=()=>{const name=$('creatorNameInput').value.trim(); if(!name){toastMsg('Creator needs a name'); return} const handle=$('creatorHandleInput').value.trim(); const bio=$('creatorBioInput').value.trim(); if(editingCreatorId){const c=creatorById(editingCreatorId); c.name=name; c.handle=handle; c.bio=bio; if(creatorDraftPhoto!==null)c.photo=creatorDraftPhoto; saveState(); logActivity('creator','Updated creator',name)} else {const c={id:uuid(),name,handle,bio,photo:creatorDraftPhoto}; creators.push(c); saveState(); logActivity('creator','Created creator',name); if(pendingImportedIds.length){assignCreatorToIds(c.id,pendingImportedIds); pendingImportedIds=[];}} creatorDraftPhoto=null; closeSheets(); updateStats(); renderFeed(); renderLibrary(); toastMsg('Creator saved')};
+function assignCreatorToIds(creatorId, ids){
+  const creator=creatorById(creatorId);
+  items.forEach(it=>{if(ids.includes(it.id)){it.creatorId=creatorId;assignments[it.id]=creatorId;}});
+  saveState();
+  if(creator)logActivity('assign','Assigned creator to media',creator.name+' • '+ids.length+' item'+(ids.length===1?'':'s'));
+  renderFeed();renderLibrary();updateStats();toastMsg('Assigned to '+(creator?.name||'creator'));
+}
+function openAssignCreatorSheet(single=false){const ids=single&&currentItem?[currentItem.id]:pendingImportedIds; $('creatorChoices').innerHTML=creators.length?creators.map(c=>`<button class="creator-choice" data-creator-choice="${c.id}"><div style="display:flex;align-items:center;gap:10px"><div class="creator-badge" style="width:34px;height:34px">${c.photo?`<img src="${c.photo}" alt="">`:esc(creatorInitial(c.name))}</div><div><div style="font-size:14px;font-weight:800">${esc(c.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(c.handle||'')}</div></div></div></button>`).join(''):'<div style="color:var(--muted);padding:8px 0">No creators yet. Create one first.</div>'; $('creatorChoices').querySelectorAll('[data-creator-choice]').forEach(b=>b.onclick=()=>{assignCreatorToIds(b.dataset.creatorChoice, ids); if(!single)pendingImportedIds=[]; closeSheets()}); openSheet('assignCreatorSheet')}
+$('skipAssignBtn').onclick=()=>{pendingImportedIds=[]; closeSheets(); toastMsg('Left unassigned')};
+window.cornboxNativeImportProgress=function(completed,total,finished){
+  if(total>0 && completed===0) nativeImportExpected=true;
+  if(total>0 && !finished) toastMsg('Importing '+completed+' of '+total+'…');
+};
+window.cornboxNativeSetMedia=function(nativeItems){
+  if(!Array.isArray(nativeItems)) return;
+  const previousIds=new Set(items.map(x=>x.id));
+  items=nativeItems.filter(x=>x&&(x.type==='video'||x.type==='image')&&x.url).map(x=>{
+    const id=String(x.name||x.url);
+    return {id,name:String(x.name||'media'),type:x.type,url:x.url,creatorId:assignments[id]||null};
+  });
+  const newlyAdded=items.filter(x=>!previousIds.has(x.id)).map(x=>x.id);
+  renderFeed();renderLibrary();updateStats();
+  if(nativeImportExpected){
+    nativeImportExpected=false;
+    pendingImportedIds=newlyAdded;
+    if(newlyAdded.length){
+      logActivity('import','Imported '+newlyAdded.length+' item'+(newlyAdded.length===1?'':'s'));
+      toastMsg('Imported '+newlyAdded.length+' item'+(newlyAdded.length===1?'':'s'));
+      if(bulkAssign)openAssignCreatorSheet();
+    }
+  }
+};
+if(IS_NATIVE_IOS)postNative('listMedia');
+updateStats(); renderFeed(); renderLibrary();
 </script>
 </body>
 </html>

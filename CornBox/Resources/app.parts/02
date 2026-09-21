@@ -1,156 +1,51 @@
-x;padding:8px 10px;font-size:11px;font-weight:800}
-.account-remove{background:#222;border-radius:8px;padding:7px 10px;font-size:11px;color:#ff7979}
-
-
-.activity-list{flex:1;overflow-y:auto;padding:10px 14px 24px}
-.activity-item{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line)}
-.activity-item:last-child{border-bottom:0}
-.activity-ico{width:36px;height:36px;border-radius:10px;background:#191919;display:grid;place-items:center;flex:0 0 auto;font-size:17px}
-.activity-copy{min-width:0;flex:1}
-.activity-copy b{display:block;font-size:13px;line-height:1.3}
-.activity-copy span{display:block;color:var(--muted);font-size:11px;margin-top:3px}
-.activity-empty{text-align:center;color:var(--muted);padding:80px 24px}
-.activity-empty .big{font-size:44px;margin-bottom:8px}
-
-</style>
-</head>
-<body>
-<div id="app">
-
-  <div id="feed"></div>
-
-  <div class="topbar">
-    <div class="topbar-inner">
-      <button id="autoBtn" class="auto-btn">Auto</button>
-      <div class="feed-title">For You</div>
-      <button id="topProfile" class="avatar">C</button>
-    </div>
-  </div>
-
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-screen="home">
-      <span class="nav-icon">⌂</span><span>Home</span>
-    </button>
-    <button class="nav-btn" data-screen="library">
-      <span class="nav-icon">▦</span><span>Library</span>
-    </button>
-    <button id="addBtn" class="nav-btn add-btn">
-      <span class="plus">＋</span>
-    </button>
-    <button class="nav-btn" data-screen="activity">
-      <span class="nav-icon">◴</span><span>Activity</span>
-    </button>
-    <button class="nav-btn" data-screen="profile">
-      <span class="nav-icon">◉</span><span>Profile</span>
-    </button>
+n class="plus">＋</span></button>
+    <button class="nav-btn" data-screen="activity"><span class="nav-icon">◴</span><span>Activity</span></button>
+    <button class="nav-btn" data-screen="profile"><span class="nav-icon">◉</span><span>Creators</span></button>
   </nav>
 
-
-  <section id="activityScreen" class="screen">
-    <div class="screen-header">
-      <div class="screen-title">Activity</div>
-      <button id="clearActivityBtn" class="round-btn">⌫</button>
-    </div>
-    <div id="activityList" class="activity-list"></div>
-  </section>
+  <section id="activityScreen" class="screen"><div class="screen-header"><div class="screen-title">Activity</div><button id="clearActivityBtn" class="round-btn">⌫</button></div><div id="activityList" class="activity-list"></div></section>
 
   <section id="libraryScreen" class="screen">
-    <div class="screen-header">
-      <div class="screen-title">Library</div>
-      <button id="shuffleBtn" class="round-btn">⤨</button>
-    </div>
-    <div class="search-row">
-      <input id="librarySearch" placeholder="Search media...">
-      <button id="sortBtn">Newest</button>
-    </div>
+    <div class="screen-header"><div class="screen-title">Library</div><button id="shuffleBtn" class="round-btn">⤨</button></div>
+    <div class="search-row"><input id="librarySearch" placeholder="Search media or creator..."><button id="sortBtn">Newest</button></div>
     <div class="filter-row">
       <button class="filter active" data-filter="all">All</button>
+      <button class="filter" data-filter="creators">Creators</button>
       <button class="filter" data-filter="liked">Liked</button>
       <button class="filter" data-filter="photos">Photos</button>
       <button class="filter" data-filter="videos">Videos</button>
       <button class="filter" data-filter="history">History</button>
       <button class="filter" data-filter="albums">Albums</button>
+      <button class="filter" data-filter="unassigned">Unassigned</button>
     </div>
     <div id="libraryGrid" class="library-grid"></div>
   </section>
 
   <section id="profileScreen" class="screen">
-    <div class="screen-header">
-      <div class="screen-title">Profile</div>
-      <button id="settingsBtn" class="round-btn">⚙</button>
-    </div>
-
+    <div class="screen-header"><div class="screen-title">Creators</div><button id="newCreatorBtn" class="round-btn">＋</button></div>
     <div class="profile-body">
-      <div class="profile-card">
-        <div id="profilePic" class="profile-pic">C</div>
-        <div>
-          <div id="profileName" class="profile-name">CornBox User</div>
-          <div id="profileHandle" class="profile-handle">@cornbox</div>
-        </div>
-      </div>
-
-      <div id="profileBio" class="profile-bio">
-        Your private media feed. Everything stays on this device.
-      </div>
-
       <div class="stats">
         <div class="stat"><b id="statMedia">0</b><span>Media</span></div>
-        <div class="stat"><b id="statLikes">0</b><span>Liked</span></div>
-        <div class="stat"><b id="statAlbums">0</b><span>Albums</span></div>
+        <div class="stat"><b id="statCreators">0</b><span>Creators</span></div>
+        <div class="stat"><b id="statAssigned">0</b><span>Assigned</span></div>
       </div>
-
-      <div class="profile-actions" style="grid-template-columns:1fr">
-        <button id="editProfileBtn" class="big-btn primary">Edit profile</button>
-      </div>
-
-      <div class="section-title">Accounts</div>
-      <div id="accountsList"></div>
-      <button id="addAccountBtn" class="big-btn" style="width:100%;margin-top:10px">Add account</button>
+      <div class="section-title">Creator Profiles</div>
+      <div id="creatorManagerList"></div>
+      <button id="addCreatorMainBtn" class="big-btn primary" style="width:100%;margin-top:12px">Create creator</button>
+      <div class="section-title">Settings</div>
+      <div class="row first"><span>Bulk assign after import</span><button id="bulkAssignSwitch" class="switch on"></button></div>
+      <div class="row last"><span>Autoplay visible video</span><button id="autoplaySwitch" class="switch on"></button></div>
     </div>
   </section>
 
-  <div id="settingsSheet" class="sheet-wrap">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <h3>Settings</h3>
-        <button class="round-btn close-sheet">×</button>
-      </div>
+  <div id="settingsSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3>Settings</h3><button class="round-btn close-sheet">×</button></div><div class="sheet-content"><div class="sheet-row"><div><b>Auto-scroll</b><small>Advance through the feed automatically</small></div><button id="autoSwitch" class="switch"></button></div><div class="sheet-row"><div><b>Photo duration</b><small id="photoVal">6 seconds</small></div><input id="photoRange" type="range" min="1" max="20" value="6"></div><div class="sheet-row"><div><b>Loop feed</b><small>Return to the first item at the end</small></div><button id="loopSwitch" class="switch on"></button></div><div class="sheet-row"><div><b>Mute videos by default</b><small>New videos start muted</small></div><button id="muteSwitch" class="switch"></button></div></div></div></div>
 
-      <div class="sheet-content">
-        <div class="sheet-row">
-          <div>
-            <b>Auto-scroll</b>
-            <small>Advance through the feed automatically</small>
-          </div>
-          <button id="autoSwitch" class="switch"></button>
-        </div>
+  <div id="commentsSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3>Comments</h3><button class="round-btn close-sheet">×</button></div><div id="commentList" class="comment-list"></div><div class="comment-form"><input id="commentInput" maxlength="200" placeholder="Add a comment..."><button id="commentSend">Post</button></div></div></div>
 
-        <div class="sheet-row">
-          <div>
-            <b>Photo duration</b>
-            <small id="photoVal">6 seconds</small>
-          </div>
-          <input id="photoRange" type="range" min="1" max="20" value="6">
-        </div>
+  <div id="moreSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3>Media options</h3><button class="round-btn close-sheet">×</button></div><div class="sheet-content more-menu"><button id="changeCreatorBtn">Change creator</button><button id="addToAlbumBtn">Add to album</button><button id="toggleLikeMoreBtn">Like / Unlike</button><button id="deleteMediaBtn" class="danger">Remove from this session</button></div></div></div>
 
-        <div class="sheet-row">
-          <div>
-            <b>Loop feed</b>
-            <small>Return to the first item at the end</small>
-          </div>
-          <button id="loopSwitch" class="switch on"></button>
-        </div>
-        <div class="sheet-row">
-          <div>
-            <b>Mute videos by default</b>
-            <small>New videos start muted</small>
-          </div>
-          <button id="muteSwitch" class="switch"></button>
-        </div>
-        <div class="sheet-row">
-          <div>
-            <b>Autoplay visible video</b>
-            <small>Play when a video becomes active</small>
-          </div>
-          <button i
+  <div id="albumSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3>Albums</h3><button class="round-btn close-sheet">×</button></div><div class="sheet-content"><div id="albumChoices"></div><div class="sheet-row" style="display:block"><b>Create album</b><input id="albumNameInput" class="field" maxlength="40" placeholder="Album name"><button id="createAlbumBtn" class="big-btn primary" style="width:100%;margin-top:10px">Create & add</button></div></div></div></div>
+
+  <div id="creatorSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3 id="creatorSheetTitle">Create creator</h3><button class="round-btn close-sheet">×</button></div><div class="sheet-content"><div class="sheet-row"><div><b>Profile picture</b><small>Choose an image</small></div><button id="pickCreatorPhoto" class="big-btn" style="height:36px;padding:0 14px">Choose</button></div><div class="sheet-row" style="display:block"><b>Display name</b><input id="creatorNameInput" class="field" placeholder="Creator name"></div><div class="sheet-row" style="display:block"><b>Handle</b><input id="creatorHandleInput" class="field" placeholder="@creator"></div><div class="sheet-row" style="display:block"><b>Bio</b><textarea id="creatorBioInput" class="field" rows="3" style="resize:none" placeholder="Short creator description"></textarea></div><button id="saveCreatorBtn" class="big-btn primary" style="width:100%;margin-top:14px">Save creator</button></div></div></div>
+
+  <div id="assignCreatorSheet" class="sheet-wrap"><div class="sheet"><div class="sheet-handle"></div><div class="sheet-head"><h3>Assign creator</h3><button class="round-btn close-sheet">×</button></div><div class="sheet-content"><div style="color:var(--muted);font-size:13px;padding-bottom:8px">Assign th

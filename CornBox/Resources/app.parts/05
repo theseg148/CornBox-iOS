@@ -1,51 +1,11 @@
-n.closest('.slide'),it=items[+slide.dataset.index];if(!it)return;
-  currentItem=it;const key=itemKey(it);
-  if(btn.dataset.action==='like'){liked[key]=!liked[key];logActivity('like',liked[key]?'Liked media':'Unliked media',it.name);renderFeed();renderLibrary();updateStats()}
-  if(btn.dataset.action==='comment')openComments(it);
-  if(btn.dataset.action==='mute'){const v=slide.querySelector('video');if(v){v.muted=!v.muted;btn.querySelector('.icon').textContent=v.muted?'🔇':'🔊'}}
-  if(btn.dataset.action==='more')openSheet('moreSheet');
- });
-}
-function renderFeed(){
- const current=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight));
- feed.innerHTML='';if(!items.length)feed.appendChild(makeSlide(null,0));else items.forEach((it,i)=>feed.appendChild(makeSlide(it,i)));
- bindSlideActions();requestAnimationFrame(()=>{if(items.length&&feed.children[Math.min(current,items.length-1)])feed.children[Math.min(current,items.length-1)].scrollIntoView()});restartAuto();
-}
-function filteredItems(){
- let arr=[...items],q=librarySearch.value.trim().toLowerCase();
- if(currentFilter==='liked')arr=arr.filter(x=>liked[itemKey(x)]);
- if(currentFilter==='photos')arr=arr.filter(x=>x.type==='image');
- if(currentFilter==='videos')arr=arr.filter(x=>x.type==='video');
- if(currentFilter==='history')arr=history.map(k=>items.find(x=>itemKey(x)===k)).filter(Boolean);
- if(q)arr=arr.filter(x=>x.name.toLowerCase().includes(q));
- if(sortMode==='name')arr.sort((a,b)=>a.name.localeCompare(b.name));
- if(sortMode==='type')arr.sort((a,b)=>a.type.localeCompare(b.type)||a.name.localeCompare(b.name));
- return arr;
-}
-function renderLibrary(){
- libraryGrid.innerHTML='';
- if(currentFilter==='albums'){renderAlbums();return}
- const arr=filteredItems();
- if(!arr.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▦</div><h3>Nothing here yet</h3><div>Add media or change the filter.</div></div>';return}
- arr.forEach(it=>{const tile=document.createElement('div');tile.className='tile';const m=document.createElement(it.type==='video'?'video':'img');m.src=it.url;m.muted=true;m.playsInline=true;const badge=document.createElement('div');badge.className='tile-badge';badge.textContent=it.type;tile.append(m,badge);tile.onclick=()=>{openScreen('home');const idx=items.indexOf(it);feed.children[idx]?.scrollIntoView({behavior:'smooth'})};libraryGrid.appendChild(tile)})
-}
-function renderAlbums(){
- const names=Object.keys(albums);
- if(!names.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▤</div><h3>No albums yet</h3><div>Use More → Add to album on any media.</div></div>';return}
- names.forEach(name=>{const tile=document.createElement('div');tile.className='tile';tile.style.display='grid';tile.style.placeItems='center';tile.innerHTML=`<div style="text-align:center;padding:10px"><div style="font-size:32px">▤</div><b>${esc(name)}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${albums[name].length} items</div></div>`;tile.onclick=()=>{const keys=albums[name];const found=items.filter(x=>keys.includes(itemKey(x)));libraryGrid.innerHTML='';found.forEach(it=>{const t=document.createElement('div');t.className='tile';const m=document.createElement(it.type==='video'?'video':'img');m.src=it.url;m.muted=true;m.playsInline=true;t.appendChild(m);t.onclick=()=>{openScreen('home');feed.children[items.indexOf(it)]?.scrollIntoView({behavior:'smooth'})};libraryGrid.appendChild(t)});if(!found.length)libraryGrid.innerHTML='<div class="empty">This album has no available media in this session.</div>'};libraryGrid.appendChild(tile)})
-}
-function openScreen(name){
- document.querySelectorAll('.screen').forEach(x=>x.classList.remove('open'));document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
- if(name==='activity'){$('activityScreen').classList.add('open');renderActivity()}
- if(name==='library'){$('libraryScreen').classList.add('open');renderLibrary()}
- if(name==='profile'){$('profileScreen').classList.add('open');updateStats()}
-}
-document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.onclick=()=>openScreen(b.dataset.screen));topProfile.onclick=()=>openScreen('profile');
-$('clearActivityBtn').onclick=()=>{activity=[];renderActivity();toastMsg('Activity cleared')};
-document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentFilter=b.dataset.filter;renderLibrary()});
-librarySearch.oninput=renderLibrary;
-sortBtn.onclick=()=>{sortMode=sortMode==='newest'?'name':sortMode==='name'?'type':'newest';sortBtn.textContent=sortMode==='newest'?'Newest':sortMode==='name'?'Name':'Type';renderLibrary()};
-$('shuffleBtn').onclick=()=>{items.sort(()=>Math.random()-.5);renderFeed();renderLibrary();logActivity('shuffle','Feed shuffled');toastMsg('Feed shuffled')};
-$('addBtn').onclick=()=>{if(!postNative('pickMedia'))importInput.click()};
-importInput.onchange=()=>{const fs=[...importInput.files];fs.forEach(f=>{const type=f.type.startsWith('video')?'video':f.type.startsWith('image')?'image':null;if(type)items.push({name:f.name,type,url:URL.createObjectURL(f)})});renderFeed();renderLibrary();updateStats();logActivity('import','Imported '+fs.length+' item'+(fs.length===1?'':'s'));openScreen('home');toastMsg(fs.length+' item'+(fs.length===1?'':'s')+' added');importInput.value=''};
-function setAuto(v){auto=v;autoBtn.classList.toggle('active',v);autoBtn.textContent=v?'Auto On':'Auto';autoSwitch.classLis
+iv>'; return;} libraryGrid.innerHTML=''; names.forEach(name=>{const tile=document.createElement('div'); tile.className='tile'; tile.style.display='grid'; tile.style.placeItems='center'; tile.innerHTML=`<div style="text-align:center;padding:10px"><div style="font-size:32px">▤</div><b>${esc(name)}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${albums[name].length} items</div></div>`; tile.onclick=()=>{const ids=albums[name]; const found=items.filter(x=>ids.includes(x.id)); libraryGrid.innerHTML=''; found.forEach(it=>{const t=document.createElement('div'); t.className='tile'; const m=document.createElement(it.type==='video'?'video':'img'); m.src=it.url; m.muted=true; m.playsInline=true; const b=document.createElement('div'); b.className='tile-badge'; b.textContent=it.type; t.append(m,b); t.onclick=()=>{openScreen('home'); const idx=items.indexOf(it); feed.children[idx]?.scrollIntoView({behavior:'smooth'})}; libraryGrid.appendChild(t)});}; libraryGrid.appendChild(tile)});}
+function openScreen(name){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('open')); document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name)); libraryGrid.style.display='grid'; libraryGrid.style.padding='2px'; if(name==='activity'){$('activityScreen').classList.add('open'); renderActivity()} if(name==='library'){$('libraryScreen').classList.add('open'); renderLibrary()} if(name==='profile'){$('profileScreen').classList.add('open'); updateStats()}}
+document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.onclick=()=>openScreen(b.dataset.screen)); $('topProfile').onclick=()=>openScreen('profile'); document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentFilter=b.dataset.filter; renderLibrary()}); $('clearActivityBtn').onclick=()=>{activity=[];saveState();renderActivity();toastMsg('Activity cleared')}; librarySearch.oninput=renderLibrary; sortBtn.onclick=()=>{sortMode=sortMode==='newest'?'name':sortMode==='name'?'type':'newest'; sortBtn.textContent=sortMode==='newest'?'Newest':sortMode==='name'?'Name':'Type'; renderLibrary()}; $('shuffleBtn').onclick=()=>{items.sort(()=>Math.random()-.5); renderFeed(); renderLibrary(); logActivity('shuffle','Feed shuffled'); toastMsg('Feed shuffled')};
+function setAuto(v){auto=v; autoBtn.classList.toggle('active',v); autoBtn.textContent=v?'Auto On':'Auto'; autoSwitch.classList.toggle('on',v); restartAuto()} autoBtn.onclick=()=>setAuto(!auto); autoSwitch.onclick=()=>setAuto(!auto); loopSwitch.onclick=()=>{loop=!loop; loopSwitch.classList.toggle('on',loop)}; muteSwitch.onclick=()=>{defaultMuted=!defaultMuted; muteSwitch.classList.toggle('on',defaultMuted); feed.querySelectorAll('video').forEach(v=>v.muted=defaultMuted)}; autoplaySwitch.onclick=()=>{autoplay=!autoplay; autoplaySwitch.classList.toggle('on',autoplay)}; bulkAssignSwitch.onclick=()=>{bulkAssign=!bulkAssign; bulkAssignSwitch.classList.toggle('on',bulkAssign)}; photoRange.oninput=()=>photoVal.textContent=photoRange.value+' seconds';
+function restartAuto(){clearTimeout(autoTimer); if(!auto)return; autoTimer=setTimeout(()=>{const slides=[...feed.children], idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight)); if(idx<slides.length-1)slides[idx+1].scrollIntoView({behavior:'smooth'}); else if(loop)slides[0]?.scrollIntoView({behavior:'smooth'}); restartAuto()}, +photoRange.value*1000)}
+let viewTimer; feed.addEventListener('scroll',()=>{clearTimeout(viewTimer); viewTimer=setTimeout(()=>{if(!items.length)return; const idx=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight)), it=items[idx]; if(!it)return; if(history[0]!==it.id)logActivity('view','Viewed media',it.name); history=[it.id,...history.filter(x=>x!==it.id)].slice(0,50); saveState(); if(autoplay){feed.querySelectorAll('video').forEach((v,i)=>{if(i===idx)v.play().catch(()=>{}); else v.pause()})} if(auto){clearTimeout(autoTimer); autoTimer=setTimeout(restartAuto,400)}},150)});
+function openSheet(id){$(id).classList.add('open')} function closeSheets(){document.querySelectorAll('.sheet-wrap').forEach(x=>x.classList.remove('open'))} document.addEventListener('click',e=>{if(e.target.classList.contains('close-sheet'))closeSheets(); if(e.target.classList.contains('sheet-wrap'))closeSheets()});
+$('addBtn').onclick=()=>{if(IS_NATIVE_IOS){nativeImportExpected=true;postNative('pickMedia')}else{importInput.click()}}; importInput.onchange=()=>{const fs=[...importInput.files]; const newIds=[]; fs.forEach(f=>{const type=f.type.startsWith('video')?'video':f.type.startsWith('image')?'image':null; if(type){const id=uuid(); items.push({id,name:f.name,type,url:URL.createObjectURL(f),creatorId:null}); newIds.push(id)}}); pendingImportedIds=newIds; renderFeed(); renderLibrary(); updateStats(); if(newIds.length)logActivity('import','Imported '+newIds.length+' item'+(newIds.length===1?'':'s')); openScreen('home'); toastMsg(fs.length+' item'+(fs.length===1?'':'s')+' added'); importInput.value=''; if(bulkAssign && newIds.length)openAssignCreatorSheet(); saveState()};
+function openComments(it){currentItem=it; renderComments(); openSheet('commentsSheet'); setTimeout(()=>$('commentInput').focus(),100)} function renderComments(){const list=comments[currentItem.id]||[]; $('commentList').innerHTML=list.length?list.map(c=>`<div class="comment"><b>${esc((creatorById(currentItem.creatorId)?.name)||'CornBox User')}</b>${esc(c)}</div>`).join(''):'<div class="empty" style="padding:30px 10px">No comments yet.</div>'}
+$('commentSend').onclick=()=>{const v=$('commentInput').value.trim(); if(!v||!currentItem)return; (comments[currentItem.id]??=[]).push(v); saveState(); logActivity('comment','Commented on media',currentItem.name); $('commentInput').value=''; renderComments(); renderFeed()}; $('commentInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('commentSend').click()});
+$('toggleLikeMoreBtn').onclick=()=>{if(!currentItem)return; liked[currentItem.id]=!liked[currentItem.
