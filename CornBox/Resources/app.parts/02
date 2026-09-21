@@ -1,180 +1,156 @@
-  enabled: false,
-  photoDelay: 6,
-  videoMode: 'finish',   // 'finish' | 'fixed'
-  videoDelay: 6,
-  capDelay: 0,           // 0 = off
-  loop: false
-}, JSON.parse(localStorage.getItem('rb_settings') || '{}'));
+x;padding:8px 10px;font-size:11px;font-weight:800}
+.account-remove{background:#222;border-radius:8px;padding:7px 10px;font-size:11px;color:#ff7979}
 
-function saveLikes() { localStorage.setItem('rb_likes', JSON.stringify(likes)); }
-function saveComments() { localStorage.setItem('rb_comments', JSON.stringify(comments)); }
-function saveAlbums() { localStorage.setItem('rb_albums', JSON.stringify(albums)); }
-function saveSettings() { localStorage.setItem('rb_settings', JSON.stringify(settings)); }
 
-function extOf(name) { return (name.split('.').pop() || '').toLowerCase(); }
-function fileToItem(file) {
-  const ext = extOf(file.name);
-  if (!VIDEO_EXT.includes(ext) && !IMAGE_EXT.includes(ext)) return null;
-  return { url: URL.createObjectURL(file), type: VIDEO_EXT.includes(ext) ? 'video' : 'image', name: file.name };
-}
-function addFiles(fileList) {
-  const newItems = Array.from(fileList).map(fileToItem).filter(Boolean);
-  allItems = allItems.concat(newItems);
-  return newItems.length;
-}
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
-  return arr;
-}
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+.activity-list{flex:1;overflow-y:auto;padding:10px 14px 24px}
+.activity-item{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line)}
+.activity-item:last-child{border-bottom:0}
+.activity-ico{width:36px;height:36px;border-radius:10px;background:#191919;display:grid;place-items:center;flex:0 0 auto;font-size:17px}
+.activity-copy{min-width:0;flex:1}
+.activity-copy b{display:block;font-size:13px;line-height:1.3}
+.activity-copy span{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.activity-empty{text-align:center;color:var(--muted);padding:80px 24px}
+.activity-empty .big{font-size:44px;margin-bottom:8px}
 
-function showMediaError(slide, item, media) {
-  if (slide.querySelector('.media-error')) return; // don't stack duplicates
-  const codes = {
-    1: 'Loading was interrupted.',
-    2: 'Network error while loading.',
-    3: "This file is corrupted, or your browser can't decode it.",
-    4: "Unsupported or damaged media file. If it will not play on this iPhone, try H.264 MP4."
-  };
-  const code = media.error ? media.error.code : 4;
-  const box = document.createElement('div');
-  box.className = 'media-error';
-  box.innerHTML = `<div class="media-error-icon">⚠️</div>
-    <div class="media-error-title">Can't play "${escapeHtml(item.name)}"</div>
-    <div class="media-error-msg">${codes[code] || codes[4]}</div>`;
-  slide.appendChild(box);
-  // don't let auto-scroll get stuck waiting forever on a video that will never load
-  if (settings.enabled && slide === currentSlide) {
-    clearTimeout(autoscrollTimer);
-    autoscrollTimer = setTimeout(() => advance(slide), 2000);
-  }
-}
+</style>
+</head>
+<body>
+<div id="app">
 
-function currentList() {
-  if (currentTab === 'liked') return allItems.filter(i => likes[i.name]);
-  if (currentTab === 'photos') return allItems.filter(i => i.type === 'image');
-  if (currentTab === 'videos') return allItems.filter(i => i.type === 'video');
-  if (currentTab === 'albums') {
-    if (!currentAlbum) return [];
-    const names = albums[currentAlbum] || [];
-    return allItems.filter(i => names.includes(i.name));
-  }
-  return allItems;
-}
+  <div id="feed"></div>
 
-function launch() {
-  if (allItems.length === 0) {
-    splash.style.display = 'none';
-    emptyMsg.textContent = 'No media found in that folder.';
-    emptyEl.style.display = 'flex';
-    return;
-  }
-  splash.style.display = 'none';
-  emptyEl.style.display = 'none';
-  appEl.style.display = 'block';
-  shuffle(allItems);
-  renderFeed();
-}
+  <div class="topbar">
+    <div class="topbar-inner">
+      <button id="autoBtn" class="auto-btn">Auto</button>
+      <div class="feed-title">For You</div>
+      <button id="topProfile" class="avatar">C</button>
+    </div>
+  </div>
 
-tabs.forEach(t => t.addEventListener('click', () => {
-  tabs.forEach(x => x.classList.remove('active'));
-  t.classList.add('active');
-  currentTab = t.dataset.tab;
-  albumChipsEl.style.display = currentTab === 'albums' ? 'flex' : 'none';
-  if (currentTab === 'albums') renderAlbumChips();
-  renderFeed();
-  feedEl.scrollTo({ top: 0 });
-}));
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="home">
+      <span class="nav-icon">⌂</span><span>Home</span>
+    </button>
+    <button class="nav-btn" data-screen="library">
+      <span class="nav-icon">▦</span><span>Library</span>
+    </button>
+    <button id="addBtn" class="nav-btn add-btn">
+      <span class="plus">＋</span>
+    </button>
+    <button class="nav-btn" data-screen="activity">
+      <span class="nav-icon">◴</span><span>Activity</span>
+    </button>
+    <button class="nav-btn" data-screen="profile">
+      <span class="nav-icon">◉</span><span>Profile</span>
+    </button>
+  </nav>
 
-function renderAlbumChips() {
-  const names = Object.keys(albums);
-  if (!currentAlbum || !names.includes(currentAlbum)) currentAlbum = names[0] || null;
-  albumChipsEl.innerHTML = '';
-  if (names.length === 0) {
-    const hint = document.createElement('div');
-    hint.style.cssText = 'font-size:12px; opacity:0.5; padding:6px 0;';
-    hint.textContent = 'No albums yet — use the 📁 button on a video to create one.';
-    albumChipsEl.appendChild(hint);
-    return;
-  }
-  names.forEach(name => {
-    const chip = document.createElement('button');
-    chip.className = 'albumChip' + (name === currentAlbum ? ' active' : '');
-    chip.textContent = `${name} (${(albums[name]||[]).length})`;
-    chip.addEventListener('click', () => { currentAlbum = name; renderAlbumChips(); renderFeed(); feedEl.scrollTo({top:0}); });
-    albumChipsEl.appendChild(chip);
-  });
-}
 
-function renderFeed() {
-  const list = shuffle(currentList().slice()); // fresh shuffle of a copy every time — never reuse a stale order
-  feedEl.innerHTML = '';
-  if (list.length === 0) {
-    const msg = document.createElement('div');
-    msg.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;opacity:0.6;text-align:center;padding:20px;';
-    const msgs = {
-      liked: 'Nothing liked yet — double-tap a video to like it.',
-      photos: 'No photos loaded.',
-      videos: 'No videos loaded.',
-      albums: Object.keys(albums).length ? 'This album is empty — add items with the 📁 button.' : 'No albums yet — use the 📁 button on any item to create one.'
-    };
-    msg.textContent = msgs[currentTab] || 'No media loaded.';
-    feedEl.appendChild(msg);
-    return;
-  }
-  list.forEach((item) => feedEl.appendChild(buildSlide(item)));
-  setupObserver();
-}
+  <section id="activityScreen" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">Activity</div>
+      <button id="clearActivityBtn" class="round-btn">⌫</button>
+    </div>
+    <div id="activityList" class="activity-list"></div>
+  </section>
 
-function buildSlide(item) {
-  const slide = document.createElement('div');
-  slide.className = 'slide';
+  <section id="libraryScreen" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">Library</div>
+      <button id="shuffleBtn" class="round-btn">⤨</button>
+    </div>
+    <div class="search-row">
+      <input id="librarySearch" placeholder="Search media...">
+      <button id="sortBtn">Newest</button>
+    </div>
+    <div class="filter-row">
+      <button class="filter active" data-filter="all">All</button>
+      <button class="filter" data-filter="liked">Liked</button>
+      <button class="filter" data-filter="photos">Photos</button>
+      <button class="filter" data-filter="videos">Videos</button>
+      <button class="filter" data-filter="history">History</button>
+      <button class="filter" data-filter="albums">Albums</button>
+    </div>
+    <div id="libraryGrid" class="library-grid"></div>
+  </section>
 
-  const media = item.type === 'video'
-    ? Object.assign(document.createElement('video'), { loop: true, playsInline: true, controls: false, muted, preload: 'none' })
-    : Object.assign(document.createElement('img'), { loading: 'lazy' });
-  media.dataset.src = item.url;
-  slide.appendChild(media);
+  <section id="profileScreen" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">Profile</div>
+      <button id="settingsBtn" class="round-btn">⚙</button>
+    </div>
 
-  // double tap to like, single tap to pause (video only)
-  let lastTap = 0;
-  slide.addEventListener('click', (e) => {
-    if (e.target.closest('.actions')) return;
-    const now = Date.now();
-    if (now - lastTap < 300) {
-      toggleLike(item.name, true);
-      burstHeart(slide);
-    } else if (item.type === 'video') {
-      media.paused ? media.play() : media.pause();
-    }
-    lastTap = now;
-  });
+    <div class="profile-body">
+      <div class="profile-card">
+        <div id="profilePic" class="profile-pic">C</div>
+        <div>
+          <div id="profileName" class="profile-name">CornBox User</div>
+          <div id="profileHandle" class="profile-handle">@cornbox</div>
+        </div>
+      </div>
 
-  if (item.type === 'video') {
-    const progress = document.createElement('div');
-    progress.className = 'progress';
-    const track = document.createElement('div');
-    track.className = 'progress-track';
-    const fill = document.createElement('div');
-    fill.className = 'progress-fill';
-    track.appendChild(fill);
-    const dot = document.createElement('div');
-    dot.className = 'progress-dot';
-    track.appendChild(dot);
-    progress.appendChild(track);
-    slide.appendChild(progress);
+      <div id="profileBio" class="profile-bio">
+        Your private media feed. Everything stays on this device.
+      </div>
 
-    media.addEventListener('timeupdate', () => {
-      if (media.duration) {
-        const pct = media.currentTime / media.duration * 100;
-        fill.style.width = pct + '%';
-        dot.style.left = pct + '%';
-      }
-    });
+      <div class="stats">
+        <div class="stat"><b id="statMedia">0</b><span>Media</span></div>
+        <div class="stat"><b id="statLikes">0</b><span>Liked</span></div>
+        <div class="stat"><b id="statAlbums">0</b><span>Albums</span></div>
+      </div>
 
-    const spinner = document.createElement('div');
-    spinner.className = 'buffer-spinner';
-    spinner.style.display = 'none';
-    slide.appendChild(spinner);
+      <div class="profile-actions" style="grid-template-columns:1fr">
+        <button id="editProfileBtn" class="big-btn primary">Edit profile</button>
+      </div>
 
-    const seekTo = (clientX) => {
+      <div class="section-title">Accounts</div>
+      <div id="accountsList"></div>
+      <button id="addAccountBtn" class="big-btn" style="width:100%;margin-top:10px">Add account</button>
+    </div>
+  </section>
+
+  <div id="settingsSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <h3>Settings</h3>
+        <button class="round-btn close-sheet">×</button>
+      </div>
+
+      <div class="sheet-content">
+        <div class="sheet-row">
+          <div>
+            <b>Auto-scroll</b>
+            <small>Advance through the feed automatically</small>
+          </div>
+          <button id="autoSwitch" class="switch"></button>
+        </div>
+
+        <div class="sheet-row">
+          <div>
+            <b>Photo duration</b>
+            <small id="photoVal">6 seconds</small>
+          </div>
+          <input id="photoRange" type="range" min="1" max="20" value="6">
+        </div>
+
+        <div class="sheet-row">
+          <div>
+            <b>Loop feed</b>
+            <small>Return to the first item at the end</small>
+          </div>
+          <button id="loopSwitch" class="switch on"></button>
+        </div>
+        <div class="sheet-row">
+          <div>
+            <b>Mute videos by default</b>
+            <small>New videos start muted</small>
+          </div>
+          <button id="muteSwitch" class="switch"></button>
+        </div>
+        <div class="sheet-row">
+          <div>
+            <b>Autoplay visible video</b>
+            <small>Play when a video becomes active</small>
+          </div>
+          <button i
