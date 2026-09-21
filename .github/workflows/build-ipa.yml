@@ -1,0 +1,97 @@
+name: Build CornBox IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild CornBox HTML
+        run: |
+          cat CornBox/Resources/app.parts/* > CornBox/Resources/app.html
+          test -s CornBox/Resources/app.html
+
+      - name: Prepare CornBox app icon
+        run: |
+          python3 -m pip install --user pillow
+          mkdir -p CornBox/Resources/Assets.xcassets/AppIcon.appiconset
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          src = Path('CornBox/Resources/AppIconSource.jpg')
+          out = Path('CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Icon-1024.png')
+          img = Image.open(src).convert('RGB').resize((1024, 1024), Image.Resampling.LANCZOS)
+          img.save(out, format='PNG', optimize=True)
+          PY
+          cat > CornBox/Resources/Assets.xcassets/Contents.json <<'EOF'
+          {
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          EOF
+          cat > CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json <<'EOF'
+          {
+            "images" : [
+              {
+                "filename" : "Icon-1024.png",
+                "idiom" : "universal",
+                "platform" : "ios",
+                "size" : "1024x1024"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          EOF
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned iPhone app
+        run: |
+          xcodebuild \
+            -project CornBox.xcodeproj \
+            -scheme CornBox \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Verify bundled files
+        run: |
+          APP_DIR="build/Build/Products/Release-iphoneos/CornBox.app"
+          echo "CornBox.app contents:"
+          find "$APP_DIR" -maxdepth 3 -type f -print
+          find "$APP_DIR" -name 'app.html' -type f | grep -q .
+          test -f "$APP_DIR/Assets.car"
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload CornBox-unsigned.ipa
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/CornBox.app Payload/CornBox.app
+          ditto -c -k --sequesterRsrc --keepParent Payload CornBox-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CornBox-unsigned-IPA
+          path: CornBox-unsigned.ipa
