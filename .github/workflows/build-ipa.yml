@@ -1,0 +1,51 @@
+name: Build CornBox IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild CornBox HTML
+        run: |
+          cat CornBox/Resources/app.parts/* > CornBox/Resources/app.html
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned iPhone app
+        run: |
+          xcodebuild \
+            -project CornBox.xcodeproj \
+            -scheme CornBox \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload CornBox-unsigned.ipa
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/CornBox.app Payload/CornBox.app
+          ditto -c -k --sequesterRsrc --keepParent Payload CornBox-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CornBox-unsigned-IPA
+          path: CornBox-unsigned.ipa
