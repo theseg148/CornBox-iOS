@@ -20,9 +20,12 @@ jobs:
 
       - name: Prepare CornBox app icon
         run: |
-          python3 -m pip install --user pillow
+          python3 -m venv .icon-venv
+          . .icon-venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install pillow
           mkdir -p CornBox/Resources/Assets.xcassets/AppIcon.appiconset
-          python3 - <<'PY'
+          python - <<'PY'
           from PIL import Image
           from pathlib import Path
           src = Path('CornBox/Resources/AppIconSource.jpg')
