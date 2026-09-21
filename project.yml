@@ -18,8 +18,8 @@ targets:
       path: CornBox/Info.plist
       properties:
         CFBundleDisplayName: CornBox
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "1.1"
+        CFBundleVersion: "5"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
