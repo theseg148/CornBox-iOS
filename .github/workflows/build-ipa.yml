@@ -25,13 +25,54 @@ jobs:
           python -m pip install pillow
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image
-          import json
+          from PIL import Image, ImageDraw
+          import json, random
 
-          source = Path('CornBox/Resources/icon-source.jpg')
+          S = 1024
+          bg = (10, 10, 10)
+          orange = (255, 122, 10)
+          edge = (28, 28, 28)
+          image = Image.new('RGB', (S, S), bg)
+          d = ImageDraw.Draw(image)
+
+          # Very subtle dark texture like the supplied artwork.
+          random.seed(8)
+          for _ in range(85):
+              x = random.randint(-100, 1000)
+              y = random.randint(-100, 1000)
+              r = random.randint(35, 150)
+              shade = random.randint(11, 17)
+              d.polygon([(x,y-r),(x+r,y),(x,y+r),(x-r,y)], fill=(shade,shade,shade))
+
+          # Corn kernels: orange circles with a dark outline.
+          kernels = [
+              (512,155,53),
+              (444,218,50),(580,218,50),
+              (376,280,45),(512,278,54),(648,280,45),
+              (430,344,52),(594,344,52),
+              (363,365,44),(512,372,56),(661,365,44),
+              (432,444,52),(592,444,52),
+              (365,455,44),(512,470,56),(658,455,44),
+              (430,548,50),(592,548,50),
+              (512,572,55),
+              (448,648,45),(576,648,45),
+              (512,675,52),
+          ]
+          for x,y,r in kernels:
+              d.ellipse((x-r-7,y-r-7,x+r+7,y+r+7), fill=edge)
+              d.ellipse((x-r,y-r,x+r,y+r), fill=orange)
+
+          # Leaves / husk, matching the uploaded orange outline style.
+          lw = 18
+          left = [(515,910),(458,840),(411,755),(370,664),(326,565),(275,485),(220,426),(196,413),(210,446),(237,515),(259,604),(279,699),(301,782),(337,847),(389,891),(455,913),(515,916)]
+          right = [(515,910),(570,835),(616,752),(660,671),(704,604),(753,551),(806,519),(813,520),(797,548),(766,614),(743,689),(722,766),(686,838),(638,889),(576,914),(515,916)]
+          d.line(left, fill=orange, width=lw, joint='curve')
+          d.line(right, fill=orange, width=lw, joint='curve')
+          d.line([(214,429),(328,514),(415,618),(480,738),(512,914)], fill=orange, width=14, joint='curve')
+          d.line([(806,524),(704,594),(625,690),(563,796),(515,914)], fill=orange, width=14, joint='curve')
+
           out = Path('CornBox/Resources/Assets.xcassets/AppIcon.appiconset')
           out.mkdir(parents=True, exist_ok=True)
-          image = Image.open(source).convert('RGB')
           specs = [
               ('Icon-20@2x.png', 40, 'iphone', '20x20', '2x'),
               ('Icon-20@3x.png', 60, 'iphone', '20x20', '3x'),
