@@ -1,0 +1,125 @@
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(val, key);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+async function filesFromDirHandle(dirHandle) {
+  const files = [];
+  async function walk(handle) {
+    for await (const [name, entry] of handle.entries()) {
+      if (entry.kind === 'file') {
+        const file = await entry.getFile();
+        files.push(file);
+      } else if (entry.kind === 'directory') {
+        await walk(entry);
+      }
+    }
+  }
+  await walk(dirHandle);
+  return files;
+}
+
+async function tryAutoLoad() {
+  if (!supportsFSA) return false;
+  const handle = await idbGet('videosDir');
+  if (!handle) return false;
+  try {
+    const perm = await handle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') return false; // needs a click to reconfirm — can't auto-grant silently
+    loadingMsg.style.display = 'block';
+    const files = await filesFromDirHandle(handle);
+    addFiles(files);
+    launch();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function pickFolder() {
+  if (IS_NATIVE_IOS) {
+    postNative('pickMedia');
+    return;
+  }
+  if (supportsFSA) {
+    try {
+      const handle = await window.showDirectoryPicker();
+      await idbSet('videosDir', handle);
+      loadingMsg.style.display = 'block';
+      const files = await filesFromDirHandle(handle);
+      addFiles(files);
+      launch();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user cancelled the picker
+      folderInput.click(); // FSA blocked (e.g. file:// security context) — fall back
+      return;
+    }
+  }
+  folderInput.click();
+}
+
+// --- initial folder pick ---
+pickFolderBtn.addEventListener('click', pickFolder);
+folderInput.addEventListener('change', (e) => { addFiles(e.target.files); launch(); });
+
+// --- server mode: if this page is being served (not opened as a local file),
+// load the shared library from the host automatically — no folder picker needed
+async function tryServerMode() {
+  if (location.protocol === 'file:') return false;
+  try {
+    const res = await fetch('/api/media', { cache: 'no-store' });
+    if (!res.ok) return false;
+    const list = await res.json();
+    if (!Array.isArray(list)) return false;
+    allItems = list; // {name, url, type} — already server-relative URLs
+    launch();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+(async () => {
+  if (IS_NATIVE_IOS) {
+    postNative('listMedia');
+    return;
+  }
+  const server = await tryServerMode();
+  if (!server) tryAutoLoad();
+})();
+
+['dragover','drop'].forEach(evt => document.addEventListener(evt, e => e.preventDefault()));
+document.addEventListener('drop', async (e) => {
+  const dt = e.dataTransfer;
+  if (!dt.items) return;
+  const files = [];
+  const walk = async (entry) => {
+    if (entry.isFile) { await new Promise(res => entry.file(f => { files.push(f); res(); })); }
+    else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const entries = await new Promise(res => reader.readEntries(res));
+      for (const en of entries) await walk(en);
+    }
+  };
+  const entries = Array.from(dt.items).map(i => i.webkitGetAsEntry()).filter(Boolean);
+  for (const en of entries) await walk(en);
+  if (files.length) {
+    addFiles(files);
+    if (appEl.style.display === 'block') renderFeed(); else launch();
+  }
+});
+
+addBtn.addEventListener('click', () => {
+  if (IS_NATIVE_IOS) postNative('pickMedia');
+  else filesInput.click();
+});
+filesInput.addEventListener('change', (e) => {
+  const added = addFiles(e.target.files);
+  if (added) { shuffle(allItems); renderFeed(); }
+  filesInput.value = '';
+});
+</script>
+</body>
+</html>
