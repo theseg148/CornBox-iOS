@@ -16,6 +16,36 @@ jobs:
       - name: Rebuild CornBox HTML
         run: |
           cat CornBox/Resources/app.parts/* > CornBox/Resources/app.html
+          test -s CornBox/Resources/app.html
+
+      - name: Prepare CornBox app icon
+        run: |
+          mkdir -p CornBox/Resources/Assets.xcassets/AppIcon.appiconset
+          cat > CornBox/Resources/Assets.xcassets/Contents.json <<'EOF'
+          {
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          EOF
+          sips -z 1024 1024 -s format png CornBox/Resources/AppIconSource.jpg --out CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Icon-1024.png
+          cat > CornBox/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json <<'EOF'
+          {
+            "images" : [
+              {
+                "filename" : "Icon-1024.png",
+                "idiom" : "universal",
+                "platform" : "ios",
+                "size" : "1024x1024"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          EOF
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -36,6 +66,13 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             clean build
+
+      - name: Verify bundled files
+        run: |
+          APP_DIR="build/Build/Products/Release-iphoneos/CornBox.app"
+          echo "CornBox.app contents:"
+          find "$APP_DIR" -maxdepth 3 -type f -print
+          find "$APP_DIR" -name 'app.html' -type f | grep -q .
 
       - name: Package IPA
         run: |
