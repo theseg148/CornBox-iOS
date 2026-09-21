@@ -8,7 +8,7 @@ struct CornBoxApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootViewV6()
+            RootViewV7()
                 .preferredColorScheme(.dark)
         }
     }
