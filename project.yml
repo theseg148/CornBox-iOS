@@ -11,6 +11,7 @@ targets:
     sources:
       - path: CornBox/Sources/CornBoxApp.swift
       - path: CornBox/Sources/CornBoxV6.swift
+      - path: CornBox/Sources/V6PlaybackRepair.swift
       - path: CornBox/Resources/app.html
         buildPhase: resources
       - path: CornBox/Resources/Assets.xcassets
@@ -19,8 +20,8 @@ targets:
       path: CornBox/Info.plist
       properties:
         CFBundleDisplayName: CornBox
-        CFBundleShortVersionString: "2.1"
-        CFBundleVersion: "8"
+        CFBundleShortVersionString: "2.1.1"
+        CFBundleVersion: "9"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
