@@ -168,14 +168,17 @@ struct CornBoxWebView: UIViewRepresentable {
 
                     if let sourceURL {
                         self.copySemaphore.wait()
+                        defer { self.copySemaphore.signal() }
+
                         let preferredName = self.preferredFilename(provider: provider, sourceURL: sourceURL, type: requestedType)
                         do {
                             _ = try self.copyIntoMediaDirectory(sourceURL, preferredName: preferredName)
-                            countLock.lock(); importedCount += 1; countLock.unlock()
+                            countLock.lock()
+                            importedCount += 1
+                            countLock.unlock()
                         } catch {
                             print("CornBox import error: \(error)")
                         }
-                        self.copySemaphore.signal()
                     }
 
                     countLock.lock()
@@ -214,7 +217,9 @@ struct CornBoxWebView: UIViewRepresentable {
                         defer { if accessed { sourceURL.stopAccessingSecurityScopedResource() } }
                         do {
                             _ = try self.copyIntoMediaDirectory(sourceURL, preferredName: sourceURL.lastPathComponent)
-                            countLock.lock(); imported += 1; countLock.unlock()
+                            countLock.lock()
+                            imported += 1
+                            countLock.unlock()
                         } catch {
                             print("CornBox file import error: \(error)")
                         }
@@ -251,8 +256,6 @@ struct CornBoxWebView: UIViewRepresentable {
         private func copyIntoMediaDirectory(_ sourceURL: URL, preferredName: String) throws -> URL {
             try fileManager.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
 
-            // Copy the expensive bytes concurrently to a unique temporary file. Only the
-            // final, very fast rename is serialized so duplicate filenames stay safe.
             let tempURL = mediaDirectory.appendingPathComponent(".import-\(UUID().uuidString)")
             do {
                 try fileManager.copyItem(at: sourceURL, to: tempURL)
@@ -293,7 +296,8 @@ struct CornBoxWebView: UIViewRepresentable {
             guard total > 0 else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let webView = self?.webView else { return }
-                let script = "window.cornboxNativeImportProgress && window.cornboxNativeImportProgress(\(completed), \(total), \(finished ? \"true\" : \"false\"));"
+                let finishedJS = finished ? "true" : "false"
+                let script = "window.cornboxNativeImportProgress && window.cornboxNativeImportProgress(\(completed), \(total), \(finishedJS));"
                 webView.evaluateJavaScript(script, completionHandler: nil)
             }
         }
@@ -309,18 +313,25 @@ struct CornBoxWebView: UIViewRepresentable {
         }
 
         private func mediaItems() -> [[String: String]] {
-            guard let urls = try? fileManager.contentsOfDirectory(at: mediaDirectory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) else { return [] }
+            guard let urls = try? fileManager.contentsOfDirectory(
+                at: mediaDirectory,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ) else { return [] }
+
             let sorted = urls.sorted {
                 let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
                 let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
                 return a > b
             }
+
             return sorted.compactMap { url in
                 let ext = url.pathExtension.lowercased()
                 let type: String
                 if videoExtensions.contains(ext) { type = "video" }
                 else if imageExtensions.contains(ext) { type = "image" }
                 else { return nil }
+
                 let relative = "media/" + url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
                 return ["name": url.lastPathComponent, "url": relative, "type": type]
             }
@@ -334,7 +345,10 @@ struct CornBoxWebView: UIViewRepresentable {
 
         private func showNativeError(_ message: String) {
             DispatchQueue.main.async { [weak self] in
-                guard let presenter = self?.topViewController() else { print(message); return }
+                guard let presenter = self?.topViewController() else {
+                    print(message)
+                    return
+                }
                 let alert = UIAlertController(title: "CornBox", message: message, preferredStyle: .alert)
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
                 presenter.present(alert, animated: true)
