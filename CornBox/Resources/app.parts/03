@@ -1,180 +1,136 @@
-      const rect = track.getBoundingClientRect();
-      const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-      if (media.duration) media.currentTime = ratio * media.duration;
-      fill.style.width = (ratio*100) + '%';
-      dot.style.left = (ratio*100) + '%';
-    };
+d="autoplaySwitch" class="switch on"></button>
+        </div>
+        <div class="sheet-row">
+          <div>
+            <b>Reset likes</b>
+            <small>Clear all liked media</small>
+          </div>
+          <button id="resetLikesBtn" class="big-btn" style="height:36px;padding:0 12px">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    let dragging = false;
-    progress.addEventListener('click', (e) => { e.stopPropagation(); seekTo(e.clientX); });
-    progress.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      dragging = true;
-      progress.classList.add('dragging');
-      media.pause();
-      seekTo(e.clientX);
-      progress.setPointerCapture(e.pointerId);
-    });
-    progress.addEventListener('pointermove', (e) => { if (dragging) seekTo(e.clientX); });
-    progress.addEventListener('pointerup', () => { dragging = false; progress.classList.remove('dragging'); media.play().catch(()=>{}); });
-    progress.addEventListener('pointercancel', () => { dragging = false; progress.classList.remove('dragging'); });
+  <div id="editProfileSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <h3>Edit profile</h3>
+        <button class="round-btn close-sheet">×</button>
+      </div>
 
-    media.addEventListener('error', () => showMediaError(slide, item, media));
-    media.addEventListener('waiting', () => toggleSpinner(slide, true));
-    media.addEventListener('playing', () => { toggleSpinner(slide, false); clearStallWatch(slide); });
-    media.addEventListener('canplay', () => { toggleSpinner(slide, false); clearStallWatch(slide); });
-  }
+      <div class="sheet-content">
+        <div class="sheet-row">
+          <div>
+            <b>Profile picture</b>
+            <small>Choose an image</small>
+          </div>
+          <button id="pickProfilePhoto" class="big-btn" style="height:36px;padding:0 14px">Choose</button>
+        </div>
 
-  const heart = document.createElement('div');
-  heart.className = 'heart-burst';
-  heart.textContent = '❤️';
-  slide.appendChild(heart);
+        <div class="sheet-row" style="display:block">
+          <b>Display name</b>
+          <input id="nameInput" class="field" value="CornBox User">
+        </div>
 
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const cCount = (comments[item.name] || []).length;
-  meta.innerHTML = `<div class="name">${escapeHtml(item.name)}</div>
-    ${cCount ? `<div class="cmt-preview">💬 ${cCount} comment${cCount>1?'s':''}</div>` : ''}`;
-  slide.appendChild(meta);
+        <div class="sheet-row" style="display:block">
+          <b>Username</b>
+          <input id="handleInput" class="field" value="@cornbox">
+        </div>
 
-  const actions = document.createElement('div');
-  actions.className = 'actions';
+        <div class="sheet-row" style="display:block">
+          <b>Description</b>
+          <textarea id="bioInput" class="field" rows="3" style="resize:none">Your private media feed. Everything stays on this device.</textarea>
+        </div>
 
-  const likeBtn = document.createElement('button');
-  likeBtn.className = 'action-btn';
-  const liked = () => !!likes[item.name];
-  likeBtn.classList.toggle('liked', liked());
-  likeBtn.innerHTML = `❤️<span>${liked() ? 'Liked' : 'Like'}</span>`;
-  likeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleLike(item.name); likeBtn.classList.toggle('liked', liked()); likeBtn.querySelector('span').textContent = liked() ? 'Liked' : 'Like'; });
-  actions.appendChild(likeBtn);
+        <button id="saveProfileBtn" class="big-btn primary" style="width:100%;margin-top:14px">Save profile</button>
+      </div>
+    </div>
+  </div>
 
-  const cmtBtn = document.createElement('button');
-  cmtBtn.className = 'action-btn';
-  cmtBtn.innerHTML = `💬<span>${cCount || 'Comment'}</span>`;
-  cmtBtn.addEventListener('click', (e) => { e.stopPropagation(); openComments(item.name); });
-  actions.appendChild(cmtBtn);
+  <div id="accountSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <h3>Add account</h3>
+        <button class="round-btn close-sheet">×</button>
+      </div>
+      <div class="sheet-content">
+        <div class="sheet-row" style="display:block">
+          <b>Service</b>
+          <input id="accountServiceInput" class="field" placeholder="Instagram, TikTok, GitHub...">
+        </div>
+        <div class="sheet-row" style="display:block">
+          <b>Handle or link</b>
+          <input id="accountValueInput" class="field" placeholder="@username or https://...">
+        </div>
+        <button id="saveAccountBtn" class="big-btn primary" style="width:100%;margin-top:14px">Add account</button>
+      </div>
+    </div>
+  </div>
 
-  const albumBtn = document.createElement('button');
-  albumBtn.className = 'action-btn';
-  albumBtn.innerHTML = `📁<span>Album</span>`;
-  albumBtn.addEventListener('click', (e) => { e.stopPropagation(); openAlbumPicker(item.name); });
-  actions.appendChild(albumBtn);
 
-  if (item.type === 'video') {
-    const muteBtn = document.createElement('button');
-    muteBtn.className = 'action-btn' + (muted ? ' muted-off' : '');
-    muteBtn.innerHTML = `${muted ? '🔇' : '🔊'}<span>Sound</span>`;
-    muteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      muted = !muted;
-      document.querySelectorAll('video').forEach(v => v.muted = muted);
-      muteBtn.classList.toggle('muted-off', muted);
-      muteBtn.innerHTML = `${muted ? '🔇' : '🔊'}<span>Sound</span>`;
-    });
-    actions.appendChild(muteBtn);
-  }
+  <div id="commentsSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><h3>Comments</h3><button class="round-btn close-sheet">×</button></div>
+      <div id="commentList" class="comment-list"></div>
+      <div class="comment-form">
+        <input id="commentInput" maxlength="200" placeholder="Add a comment...">
+        <button id="commentSend">Post</button>
+      </div>
+    </div>
+  </div>
 
-  slide.appendChild(actions);
-  return slide;
-}
+  <div id="moreSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><h3>Media options</h3><button class="round-btn close-sheet">×</button></div>
+      <div class="sheet-content more-menu">
+        <button id="addToAlbumBtn">Add to album</button>
+        <button id="toggleLikeMoreBtn">Like / Unlike</button>
+        <button id="deleteMediaBtn" class="danger">Remove from this session</button>
+      </div>
+    </div>
+  </div>
 
-function toggleLike(name, forceOn) {
-  if (forceOn) likes[name] = true;
-  else likes[name] = !likes[name];
-  saveLikes();
-}
+  <div id="albumSheet" class="sheet-wrap">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><h3>Albums</h3><button class="round-btn close-sheet">×</button></div>
+      <div class="sheet-content">
+        <div id="albumChoices"></div>
+        <div class="sheet-row" style="display:block">
+          <b>Create album</b>
+          <input id="albumNameInput" class="field" maxlength="40" placeholder="Album name">
+          <button id="createAlbumBtn" class="big-btn primary" style="width:100%;margin-top:10px">Create & add</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-function burstHeart(slide) {
-  const h = slide.querySelector('.heart-burst');
-  h.classList.remove('play'); void h.offsetWidth; h.classList.add('play');
-}
+  <input id="importInput" type="file" multiple accept="video/*,image/*">
+  <input id="profileInput" type="file" accept="image/*">
 
-function loadMedia(m) {
-  if (!m || m.dataset.src === undefined) return;
-  if (m.tagName === 'VIDEO') {
-    if (!m.getAttribute('src')) { m.preload = 'auto'; m.src = m.dataset.src; }
-  } else if (!m.getAttribute('src')) {
-    m.src = m.dataset.src;
-  }
-}
-function unloadMedia(m) {
-  if (!m) return;
-  if (m.tagName === 'VIDEO' && m.getAttribute('src')) {
-    m.pause();
-    m.removeAttribute('src');
-    m.load(); // actually releases the buffered data / stops any in-flight request
-  } else if (m.tagName === 'IMG' && m.getAttribute('src')) {
-    m.removeAttribute('src');
-  }
-}
-// keeps only the current slide's media (+ neighbors on larger/desktop screens) loaded,
-// so the feed isn't fighting itself for bandwidth loading every video at once.
-// Phones generally only have 1-2 hardware video decoder slots — keeping extra videos
-// "loaded" there doesn't make scrolling smoother, it makes them stall waiting for a
-// decoder slot that's busy. So on mobile we keep only the one actually on screen.
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && matchMedia('(pointer:coarse)').matches);
-const KEEP_RADIUS = isMobile ? 0 : 1;
-const UNLOAD_DELAY = isMobile ? 0 : 400; // no debounce needed on mobile — we want the old video gone immediately, not lingering and holding a decoder slot
+  <div id="toast" class="toast"></div>
+</div>
 
-let unloadDebounce = null;
-function manageLoading(activeSlide) {
-  const slides = Array.from(feedEl.children);
-  const idx = slides.indexOf(activeSlide);
-  slides.forEach((s, i) => { if (Math.abs(i - idx) <= KEEP_RADIUS) loadMedia(s.querySelector('video, img')); });
-  clearTimeout(unloadDebounce);
-  const doUnload = () => slides.forEach((s, i) => { if (Math.abs(i - idx) > KEEP_RADIUS) unloadMedia(s.querySelector('video, img')); });
-  if (UNLOAD_DELAY === 0) doUnload();
-  else unloadDebounce = setTimeout(doUnload, UNLOAD_DELAY);
-}
+<script>
+const $=id=>document.getElementById(id);
+const feed=$('feed'),libraryGrid=$('libraryGrid'),importInput=$('importInput'),profileInput=$('profileInput');
+const autoBtn=$('autoBtn'),autoSwitch=$('autoSwitch'),loopSwitch=$('loopSwitch'),muteSwitch=$('muteSwitch'),autoplaySwitch=$('autoplaySwitch');
+const photoRange=$('photoRange'),photoVal=$('photoVal'),toast=$('toast');
+const profileName=$('profileName'),profileHandle=$('profileHandle'),profileBio=$('profileBio'),profilePic=$('profilePic'),topProfile=$('topProfile');
+const nameInput=$('nameInput'),handleInput=$('handleInput'),bioInput=$('bioInput'),librarySearch=$('librarySearch'),sortBtn=$('sortBtn');
+const IS_NATIVE_IOS=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.cornbox);
+function postNative(action,payload={}){if(!IS_NATIVE_IOS)return false;window.webkit.messageHandlers.cornbox.postMessage({action,...payload});return true}
 
-function setupObserver() {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const media = entry.target.querySelector('video, img');
-      if (entry.isIntersecting) {
-        currentSlide = entry.target;
-        manageLoading(entry.target);
-        if (media.tagName === 'VIDEO') {
-          media.currentTime = 0; media.muted = muted;
-          const playNow = () => media.play().catch(()=>{});
-          if (media.readyState >= 3) playNow(); else media.addEventListener('canplay', playNow, { once: true });
-          toggleSpinner(entry.target, media.readyState < 3);
-        }
-        scheduleAutoscroll(entry.target, media);
-      } else if (media.tagName === 'VIDEO') { media.pause(); }
-    });
-  }, { threshold: 0.6 });
-  document.querySelectorAll('.slide').forEach(s => observer.observe(s));
-}
 
-function toggleSpinner(slide, show) {
-  const sp = slide.querySelector('.buffer-spinner');
-  if (sp) sp.style.display = show ? 'block' : 'none';
-  if (show) startStallWatch(slide); else clearStallWatch(slide);
-}
-
-const stallTimers = new WeakMap();
-function startStallWatch(slide) {
-  if (stallTimers.has(slide)) return; // already watching
-  const timer = setTimeout(() => {
-    const media = slide.querySelector('video');
-    if (!media) return;
-    toggleSpinner(slide, false);
-    showStuckMessage(slide, media);
-  }, 7000);
-  stallTimers.set(slide, timer);
-}
-function clearStallWatch(slide) {
-  const timer = stallTimers.get(slide);
-  if (timer) { clearTimeout(timer); stallTimers.delete(slide); }
-  const stuck = slide.querySelector('.media-stuck');
-  if (stuck) stuck.remove();
-}
-function showStuckMessage(slide, media) {
-  if (slide.querySelector('.media-stuck') || slide.querySelector('.media-error')) return;
-  const box = document.createElement('div');
-  box.className = 'media-error media-stuck';
-  box.innerHTML = `<div class="media-error-icon">⏳</div>
-    <div class="media-error-title">Still loading after 7 seconds</div>
-    <div class="media-error-msg">This usually means a slow/unstable connection, or a format your browser can't stream well. </div>
-    <button class="btn secondary" id="stuckRetry" style="margin-top:10px;">Retry</button>`;
+let items=[],liked={},comments={},albums={},history=[],activity=[];
+window.cornboxNativeSetMedia=function(nativeItems){
+  if(!Array.isArray(nativeItems))return;
+  items=nativeItems.filter(x=>x&&(x.type==='video'||x.type==='image')&&x.url).map(x=>({name:x.name||'media',type:x.type,url:x.url}));
+  renderFeed();renderLibrary();updateStats();
+  if(items.length)openScreen('home');
+};
+window.cornboxNativeImp
