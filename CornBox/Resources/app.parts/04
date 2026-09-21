@@ -1,180 +1,61 @@
-  slide.appendChild(box);
-  box.querySelector('#stuckRetry').addEventListener('click', (e) => {
-    e.stopPropagation();
-    box.remove();
-    unloadMedia(media);
-    loadMedia(media);
-    toggleSpinner(slide, true);
-  });
+ortProgress=function(completed,total,finished){
+  if(!total)return;
+  if(finished)toastMsg('Imported '+total+' item'+(total===1?'':'s'));
+  else toastMsg('Importing '+completed+' of '+total+'…');
+};
+
+let currentFilter='all',currentItem=null,auto=false,loop=true,defaultMuted=false,autoplay=true,autoTimer=null;
+let sortMode='newest';
+let profile=JSON.parse(localStorage.getItem('cornbox_redesign_profile')||'null')||{name:'CornBox User',handle:'@cornbox',bio:'Your private media feed. Everything stays on this device.',picture:null,accounts:[]};
+
+function toastMsg(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastMsg.t);toastMsg.t=setTimeout(()=>toast.classList.remove('show'),1700)}
+function logActivity(type,title,detail=''){
+  const icons={like:'♥',comment:'◌',import:'＋',view:'▶',album:'▤',profile:'◉',account:'@',remove:'−',shuffle:'⤨',settings:'⚙'};
+  activity.unshift({type,title,detail,time:Date.now(),icon:icons[type]||'•'});
+  activity=activity.slice(0,100);
+  if($('activityScreen').classList.contains('open')) renderActivity();
 }
-
-function scheduleAutoscroll(slide, media) {
-  clearTimeout(autoscrollTimer);
-  if (!settings.enabled) return;
-
-  if (media.tagName === 'VIDEO') {
-    if (settings.videoMode === 'fixed') {
-      autoscrollTimer = setTimeout(() => advance(slide), settings.videoDelay * 1000);
-      return;
-    }
-    // wait for the video to finish, optionally capped for very long videos
-    const useDuration = () => {
-      let delay = (media.duration || settings.videoDelay) * 1000;
-      if (settings.capDelay > 0) delay = Math.min(delay, settings.capDelay * 1000);
-      autoscrollTimer = setTimeout(() => advance(slide), delay);
-    };
-    if (media.readyState >= 1) useDuration(); else media.addEventListener('loadedmetadata', useDuration, { once:true });
-  } else {
-    autoscrollTimer = setTimeout(() => advance(slide), settings.photoDelay * 1000);
+function timeAgo(ts){
+  const s=Math.max(1,Math.floor((Date.now()-ts)/1000));
+  if(s<60)return s+'s ago';
+  const m=Math.floor(s/60); if(m<60)return m+'m ago';
+  const h=Math.floor(m/60); if(h<24)return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function renderActivity(){
+  const box=$('activityList');
+  if(!activity.length){
+    box.innerHTML='<div class="activity-empty"><div class="big">◴</div><h3>No activity yet</h3><div>Likes, comments, imports, views and album changes will appear here.</div></div>';
+    return;
   }
-}
-function advance(slide) {
-  const next = slide.nextElementSibling;
-  if (next) { next.scrollIntoView({ behavior:'smooth' }); return; }
-  if (settings.loop) {
-    const first = feedEl.firstElementChild;
-    if (first) first.scrollIntoView({ behavior:'smooth' });
-  }
+  box.innerHTML=activity.map(a=>`<div class="activity-item"><div class="activity-ico">${esc(a.icon)}</div><div class="activity-copy"><b>${esc(a.title)}</b>${a.detail?`<span>${esc(a.detail)}</span>`:''}<span>${timeAgo(a.time)}</span></div></div>`).join('');
 }
 
-autoscrollToggle.addEventListener('click', () => {
-  settings.enabled = !settings.enabled;
-  saveSettings();
-  syncAutoscrollUI();
-  if (settings.enabled && currentSlide) scheduleAutoscroll(currentSlide, currentSlide.querySelector('video, img'));
-  else clearTimeout(autoscrollTimer);
-});
-
-function syncAutoscrollUI() {
-  autoscrollToggle.textContent = settings.enabled ? '⏸ Auto' : '⏵ Auto';
-  autoscrollToggle.classList.toggle('active', settings.enabled);
-  setEnabled.checked = settings.enabled;
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function saveProfile(){localStorage.setItem('cornbox_redesign_profile',JSON.stringify(profile));updateProfileUI()}
+function updateStats(){$('statMedia').textContent=items.length;$('statLikes').textContent=Object.values(liked).filter(Boolean).length;$('statAlbums').textContent=Object.keys(albums).length}
+function updateProfileUI(){
+ profileName.textContent=profile.name||'CornBox User';profileHandle.textContent=profile.handle||'@cornbox';profileBio.textContent=profile.bio||'';
+ nameInput.value=profile.name||'';handleInput.value=profile.handle||'';bioInput.value=profile.bio||'';
+ const initial=(profile.name||'C').trim().charAt(0).toUpperCase()||'C';
+ [profilePic,topProfile].forEach(el=>el.innerHTML=profile.picture?'<img src="'+profile.picture+'" alt="">':initial);
+ const box=$('accountsList');
+ box.innerHTML=profile.accounts.length?profile.accounts.map((a,i)=>`<div class="row ${i===0?'first':''} ${i===profile.accounts.length-1?'last':''}"><div class="row-left"><div class="row-icon">${esc((a.service||'?')[0].toUpperCase())}</div><div class="row-meta"><b>${esc(a.service)}</b><span>${esc(a.value)}</span></div></div><button class="account-remove" data-account="${i}">Remove</button></div>`).join(''):'<div style="color:var(--muted);font-size:13px;padding:4px 2px">No accounts added.</div>';
+ box.querySelectorAll('[data-account]').forEach(b=>b.onclick=()=>{const removed=profile.accounts[+b.dataset.account];profile.accounts.splice(+b.dataset.account,1);saveProfile();logActivity('account','Removed account',removed?removed.service:'');toastMsg('Account removed')});
+ updateStats();
 }
-
-reshuffleBtn.addEventListener('click', () => { shuffle(allItems); renderFeed(); feedEl.scrollTo({ top:0 }); });
-
-// --- settings sheet ---
-function initSettingsUI() {
-  syncAutoscrollUI();
-  photoDelay.value = settings.photoDelay;
-  photoDelayVal.textContent = settings.photoDelay + 's';
-  videoDelay.value = settings.videoDelay;
-  videoDelayVal.textContent = settings.videoDelay + 's';
-  capDelay.value = settings.capDelay;
-  capVal.textContent = settings.capDelay > 0 ? settings.capDelay + 's' : 'Off';
-  setLoop.checked = settings.loop;
-  videoFixedRow.style.display = settings.videoMode === 'fixed' ? 'block' : 'none';
-  document.querySelectorAll('.radioRow button').forEach(b => b.classList.toggle('active', b.dataset.mode === settings.videoMode));
+function itemKey(it){return it?it.name:''}
+function makeSlide(item,index){
+ const slide=document.createElement('section');slide.className='slide';slide.dataset.index=index;
+ if(item){
+  const m=document.createElement(item.type==='video'?'video':'img');m.className='media';m.src=item.url;
+  if(item.type==='video'){m.playsInline=true;m.preload='metadata';m.muted=defaultMuted;m.addEventListener('click',()=>m.paused?m.play():m.pause())}
+  slide.appendChild(m);
+ }else slide.innerHTML='<div class="placeholder"><div class="placeholder-inner"><div class="placeholder-logo">🌽</div><div class="placeholder-title">CornBox</div><div class="placeholder-sub">Add videos or photos to start your feed.</div></div></div>';
+ const key=itemKey(item),isLiked=item&&liked[key],count=(comments[key]||[]).length;
+ slide.insertAdjacentHTML('beforeend',`<div class="caption"><div class="caption-name">${esc(item?item.name:'Your feed')}</div><div class="caption-desc">${item?'Local media • only on this device':'Use + below to import media.'}</div></div><div class="actions">${item?`<button class="action like ${isLiked?'liked':''}" data-action="like" data-key="${esc(key)}"><span class="icon">♥</span><span class="label">${isLiked?'Liked':'Like'}</span></button><button class="action" data-action="comment" data-key="${esc(key)}"><span class="icon">◌</span><span class="label">${count?count:'Comment'}</span></button>${item.type==='video'?`<button class="action" data-action="mute"><span class="icon">${defaultMuted?'🔇':'🔊'}</span><span class="label">Sound</span></button>`:''}<button class="action" data-action="more" data-key="${esc(key)}"><span class="icon">•••</span><span class="label">More</span></button>`:''}</div><div class="progress"><div class="progress-track"><div class="progress-fill"></div></div></div>`);
+ return slide;
 }
-settingsBtn.addEventListener('click', () => { initSettingsUI(); settingsOverlay.classList.add('open'); });
-settingsClose.addEventListener('click', () => settingsOverlay.classList.remove('open'));
-setEnabled.addEventListener('change', () => {
-  settings.enabled = setEnabled.checked;
-  saveSettings(); syncAutoscrollUI();
-  if (settings.enabled && currentSlide) scheduleAutoscroll(currentSlide, currentSlide.querySelector('video, img'));
-  else clearTimeout(autoscrollTimer);
-});
-photoDelay.addEventListener('input', () => { settings.photoDelay = +photoDelay.value; photoDelayVal.textContent = settings.photoDelay + 's'; saveSettings(); });
-videoDelay.addEventListener('input', () => { settings.videoDelay = +videoDelay.value; videoDelayVal.textContent = settings.videoDelay + 's'; saveSettings(); });
-capDelay.addEventListener('input', () => { settings.capDelay = +capDelay.value; capVal.textContent = settings.capDelay > 0 ? settings.capDelay + 's' : 'Off'; saveSettings(); });
-setLoop.addEventListener('change', () => { settings.loop = setLoop.checked; saveSettings(); });
-document.querySelectorAll('.radioRow button').forEach(b => b.addEventListener('click', () => {
-  settings.videoMode = b.dataset.mode;
-  saveSettings();
-  document.querySelectorAll('.radioRow button').forEach(x => x.classList.toggle('active', x === b));
-  videoFixedRow.style.display = settings.videoMode === 'fixed' ? 'block' : 'none';
-}));
-initSettingsUI();
-
-// --- album picker sheet ---
-function openAlbumPicker(name) {
-  activeAlbumPickName = name;
-  renderAlbumPickList();
-  albumOverlay.classList.add('open');
-  newAlbumInput.value = '';
-}
-function renderAlbumPickList() {
-  const names = Object.keys(albums);
-  albumPickList.innerHTML = names.length
-    ? names.map(n => {
-        const inAlbum = (albums[n] || []).includes(activeAlbumPickName);
-        return `<div class="albumRow"><span>${escapeHtml(n)} (${(albums[n]||[]).length})</span>
-          <button data-album="${escapeHtml(n)}" class="pill${inAlbum ? ' active' : ''}">${inAlbum ? 'Added ✓' : 'Add'}</button></div>`;
-      }).join('')
-    : `<div style="opacity:0.5;font-size:13px;padding:8px 0;">No albums yet — create one below.</div>`;
-  albumPickList.querySelectorAll('button[data-album]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const album = btn.dataset.album;
-      albums[album] = albums[album] || [];
-      const idx = albums[album].indexOf(activeAlbumPickName);
-      if (idx >= 0) albums[album].splice(idx, 1); else albums[album].push(activeAlbumPickName);
-      saveAlbums();
-      renderAlbumPickList();
-      if (currentTab === 'albums') renderAlbumChips();
-    });
-  });
-}
-albumClose.addEventListener('click', () => { albumOverlay.classList.remove('open'); renderFeed(); });
-newAlbumBtn.addEventListener('click', () => {
-  const name = newAlbumInput.value.trim();
-  if (!name) return;
-  if (!albums[name]) albums[name] = [];
-  if (!albums[name].includes(activeAlbumPickName)) albums[name].push(activeAlbumPickName);
-  saveAlbums();
-  newAlbumInput.value = '';
-  renderAlbumPickList();
-});
-
-// --- comments sheet ---
-function openComments(name) {
-  activeCmtName = name;
-  cmtTitle.textContent = `Comments — ${name}`;
-  renderComments();
-  cmtOverlay.classList.add('open');
-  cmtInput.value = '';
-  cmtInput.focus();
-}
-function renderComments() {
-  const list = comments[activeCmtName] || [];
-  cmtList.innerHTML = list.length
-    ? list.map(c => `<div class="cmt"><span class="who">You</span>${escapeHtml(c)}</div>`).join('')
-    : `<div style="opacity:0.5;font-size:13px;">No comments yet. Be the first.</div>`;
-}
-cmtClose.addEventListener('click', () => cmtOverlay.classList.remove('open'));
-cmtSend.addEventListener('click', postComment);
-cmtInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') postComment(); });
-function postComment() {
-  const text = cmtInput.value.trim();
-  if (!text || !activeCmtName) return;
-  comments[activeCmtName] = comments[activeCmtName] || [];
-  comments[activeCmtName].push(text);
-  saveComments();
-  cmtInput.value = '';
-  renderComments();
-  renderFeed(); // refresh comment counts
-}
-
-// --- remembering the folder across launches (Chrome/Edge) ---
-const supportsFSA = 'showDirectoryPicker' in window;
-const loadingMsg = document.getElementById('loadingMsg');
-
-function idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('cornbox', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('handles');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function idbGet(key) {
-  const db = await idbOpen();
-  return new Promise((resolve) => {
-    const tx = db.transaction('handles', 'readonly');
-    const req = tx.objectStore('handles').get(key);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => resolve(null);
-  });
-}
-async function idbSet(key, val) {
-  const db = await idbOpen();
-  return new Promise((resolve) => {
+function bindSlideActions(){
+ feed.querySelectorAll('[data-action]').forEach(btn=>btn.onclick=e=>{
+  e.stopPropagation();const slide=bt
