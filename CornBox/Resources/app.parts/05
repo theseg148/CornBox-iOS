@@ -1,364 +1,51 @@
-    const tx = db.transaction('handles', 'readwrite');
-    tx.objectStore('handles').put(val, key);
-    tx.oncomplete = () => resolve();
-  });
+n.closest('.slide'),it=items[+slide.dataset.index];if(!it)return;
+  currentItem=it;const key=itemKey(it);
+  if(btn.dataset.action==='like'){liked[key]=!liked[key];logActivity('like',liked[key]?'Liked media':'Unliked media',it.name);renderFeed();renderLibrary();updateStats()}
+  if(btn.dataset.action==='comment')openComments(it);
+  if(btn.dataset.action==='mute'){const v=slide.querySelector('video');if(v){v.muted=!v.muted;btn.querySelector('.icon').textContent=v.muted?'🔇':'🔊'}}
+  if(btn.dataset.action==='more')openSheet('moreSheet');
+ });
 }
-
-async function filesFromDirHandle(dirHandle) {
-  const files = [];
-  async function walk(handle) {
-    for await (const [name, entry] of handle.entries()) {
-      if (entry.kind === 'file') {
-        const file = await entry.getFile();
-        files.push(file);
-      } else if (entry.kind === 'directory') {
-        await walk(entry);
-      }
-    }
-  }
-  await walk(dirHandle);
-  return files;
+function renderFeed(){
+ const current=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight));
+ feed.innerHTML='';if(!items.length)feed.appendChild(makeSlide(null,0));else items.forEach((it,i)=>feed.appendChild(makeSlide(it,i)));
+ bindSlideActions();requestAnimationFrame(()=>{if(items.length&&feed.children[Math.min(current,items.length-1)])feed.children[Math.min(current,items.length-1)].scrollIntoView()});restartAuto();
 }
-
-async function tryAutoLoad() {
-  if (!supportsFSA) return false;
-  const handle = await idbGet('videosDir');
-  if (!handle) return false;
-  try {
-    const perm = await handle.queryPermission({ mode: 'read' });
-    if (perm !== 'granted') return false;
-    loadingMsg.style.display = 'block';
-    const files = await filesFromDirHandle(handle);
-    addFiles(files);
-    launch();
-    return true;
-  } catch (e) {
-    return false;
-  }
+function filteredItems(){
+ let arr=[...items],q=librarySearch.value.trim().toLowerCase();
+ if(currentFilter==='liked')arr=arr.filter(x=>liked[itemKey(x)]);
+ if(currentFilter==='photos')arr=arr.filter(x=>x.type==='image');
+ if(currentFilter==='videos')arr=arr.filter(x=>x.type==='video');
+ if(currentFilter==='history')arr=history.map(k=>items.find(x=>itemKey(x)===k)).filter(Boolean);
+ if(q)arr=arr.filter(x=>x.name.toLowerCase().includes(q));
+ if(sortMode==='name')arr.sort((a,b)=>a.name.localeCompare(b.name));
+ if(sortMode==='type')arr.sort((a,b)=>a.type.localeCompare(b.type)||a.name.localeCompare(b.name));
+ return arr;
 }
-
-async function pickFolder() {
-  if (IS_NATIVE_IOS) {
-    postNative('pickMedia');
-    return;
-  }
-  if (supportsFSA) {
-    try {
-      const handle = await window.showDirectoryPicker();
-      await idbSet('videosDir', handle);
-      loadingMsg.style.display = 'block';
-      const files = await filesFromDirHandle(handle);
-      addFiles(files);
-      launch();
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-      folderInput.click();
-      return;
-    }
-  }
-  folderInput.click();
+function renderLibrary(){
+ libraryGrid.innerHTML='';
+ if(currentFilter==='albums'){renderAlbums();return}
+ const arr=filteredItems();
+ if(!arr.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▦</div><h3>Nothing here yet</h3><div>Add media or change the filter.</div></div>';return}
+ arr.forEach(it=>{const tile=document.createElement('div');tile.className='tile';const m=document.createElement(it.type==='video'?'video':'img');m.src=it.url;m.muted=true;m.playsInline=true;const badge=document.createElement('div');badge.className='tile-badge';badge.textContent=it.type;tile.append(m,badge);tile.onclick=()=>{openScreen('home');const idx=items.indexOf(it);feed.children[idx]?.scrollIntoView({behavior:'smooth'})};libraryGrid.appendChild(tile)})
 }
-
-// --- native iPhone presentation layer ---
-if (IS_NATIVE_IOS) {
-  document.documentElement.classList.add('cornbox-ios');
-  const viewport = document.querySelector('meta[name="viewport"]');
-  if (viewport) viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
-
-  const mobileCSS = document.createElement('style');
-  mobileCSS.textContent = `
-    html.cornbox-ios, html.cornbox-ios body {
-      width:100%; height:100%; min-height:100dvh; overflow:hidden;
-      overscroll-behavior:none; -webkit-user-select:none; user-select:none;
-      background:#000;
-    }
-    html.cornbox-ios #app,
-    html.cornbox-ios #feed,
-    html.cornbox-ios .slide {
-      height:100dvh;
-      min-height:100dvh;
-    }
-    html.cornbox-ios #feed {
-      scroll-snap-type:y mandatory;
-      scroll-padding-top:0;
-      -webkit-overflow-scrolling:touch;
-      overscroll-behavior-y:contain;
-      touch-action:pan-y;
-    }
-    html.cornbox-ios .slide {
-      scroll-snap-stop:always;
-      contain:layout paint style;
-      overflow:hidden;
-    }
-    html.cornbox-ios .slide video,
-    html.cornbox-ios .slide img {
-      width:100%; height:100%; max-width:none; max-height:none;
-      object-fit:contain;
-    }
-    html.cornbox-ios #headerBar {
-      padding-top:calc(env(safe-area-inset-top) + 2px);
-      padding-bottom:10px;
-      gap:7px;
-      background:linear-gradient(to bottom, rgba(0,0,0,.82) 0%, rgba(0,0,0,.42) 58%, transparent 100%);
-      pointer-events:none;
-    }
-    html.cornbox-ios #topbar,
-    html.cornbox-ios #utilRow,
-    html.cornbox-ios #albumChips { pointer-events:auto; }
-    html.cornbox-ios #topbar {
-      padding:0 12px;
-      gap:18px;
-      min-height:40px;
-      scroll-snap-type:x proximity;
-    }
-    html.cornbox-ios .tab {
-      min-height:40px;
-      font-size:13px;
-      padding:8px 1px;
-      scroll-snap-align:center;
-    }
-    html.cornbox-ios .tab.active::after { bottom:0; height:3px; }
-    html.cornbox-ios #utilRow {
-      position:fixed;
-      top:calc(env(safe-area-inset-top) + 47px);
-      right:10px;
-      padding:0;
-      gap:6px;
-      z-index:35;
-    }
-    html.cornbox-ios .pill {
-      min-height:38px;
-      padding:0 12px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      background:rgba(20,20,20,.72);
-      border:1px solid rgba(255,255,255,.08);
-      -webkit-backdrop-filter:blur(16px);
-      backdrop-filter:blur(16px);
-      font-size:12px;
-    }
-    html.cornbox-ios #settingsBtn,
-    html.cornbox-ios #reshuffleBtn {
-      width:38px;
-      padding:0;
-    }
-    html.cornbox-ios #albumChips {
-      padding:0 12px;
-      max-width:calc(100vw - 8px);
-    }
-    html.cornbox-ios .albumChip {
-      min-height:36px;
-      padding:0 13px;
-      font-size:12px;
-      background:rgba(28,28,28,.78);
-      -webkit-backdrop-filter:blur(14px);
-      backdrop-filter:blur(14px);
-    }
-    html.cornbox-ios .actions {
-      right:8px;
-      bottom:calc(env(safe-area-inset-bottom) + 76px);
-      gap:12px;
-      z-index:20;
-    }
-    html.cornbox-ios .action-btn {
-      width:54px;
-      min-height:54px;
-      justify-content:center;
-      font-size:27px;
-      gap:1px;
-      border-radius:16px;
-      touch-action:manipulation;
-    }
-    html.cornbox-ios .action-btn span {
-      font-size:10px;
-      line-height:12px;
-      max-width:54px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    html.cornbox-ios .meta {
-      left:14px;
-      right:82px;
-      bottom:calc(env(safe-area-inset-bottom) + 55px);
-      padding-bottom:4px;
-    }
-    html.cornbox-ios .meta .name {
-      font-size:13px;
-      line-height:17px;
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-      overflow:hidden;
-      word-break:break-word;
-    }
-    html.cornbox-ios #addBtn {
-      right:14px;
-      bottom:calc(env(safe-area-inset-bottom) + 12px);
-      width:52px;
-      height:52px;
-      font-size:26px;
-      border-radius:18px;
-      z-index:40;
-      box-shadow:0 6px 22px rgba(0,0,0,.45);
-      touch-action:manipulation;
-    }
-    html.cornbox-ios .progress {
-      bottom:env(safe-area-inset-bottom);
-      height:30px;
-      padding-top:22px;
-      z-index:25;
-      touch-action:none;
-    }
-    html.cornbox-ios .progress-track { height:3px; }
-    html.cornbox-ios .progress-dot { width:14px; height:14px; }
-    html.cornbox-ios #splash {
-      min-height:100dvh;
-      padding:calc(env(safe-area-inset-top) + 32px) 28px calc(env(safe-area-inset-bottom) + 32px);
-      gap:16px;
-    }
-    html.cornbox-ios #splash .logo { font-size:64px; }
-    html.cornbox-ios #splash h1 { font-size:32px; }
-    html.cornbox-ios #splash p { font-size:14px; line-height:20px; }
-    html.cornbox-ios #splash .btn { min-height:52px; min-width:190px; font-size:16px; border-radius:16px; }
-    html.cornbox-ios #cmtSheet,
-    html.cornbox-ios #settingsSheet,
-    html.cornbox-ios #albumSheet {
-      max-height:calc(88dvh - env(safe-area-inset-top));
-      border-radius:24px 24px 0 0;
-      padding-bottom:env(safe-area-inset-bottom);
-      box-shadow:0 -16px 50px rgba(0,0,0,.45);
-    }
-    html.cornbox-ios .sheetHeader,
-    html.cornbox-ios #cmtHeader {
-      min-height:56px;
-      padding:14px 18px;
-      font-size:16px;
-      -webkit-backdrop-filter:blur(16px);
-      backdrop-filter:blur(16px);
-    }
-    html.cornbox-ios .sheetHeader button,
-    html.cornbox-ios #cmtHeader button {
-      width:44px; height:44px; margin:-8px -8px -8px 0;
-      font-size:18px;
-    }
-    html.cornbox-ios .settingRow { padding:16px 18px; }
-    html.cornbox-ios #cmtInputRow,
-    html.cornbox-ios #newAlbumRow {
-      gap:10px;
-      padding:12px 14px calc(12px + env(safe-area-inset-bottom));
-    }
-    html.cornbox-ios #cmtInputRow input,
-    html.cornbox-ios #newAlbumRow input {
-      min-height:44px;
-      font-size:16px;
-    }
-    html.cornbox-ios #cmtInputRow button,
-    html.cornbox-ios #newAlbumRow button {
-      min-height:44px;
-      padding:0 18px;
-    }
-    html.cornbox-ios #empty { min-height:100dvh; }
-    html.cornbox-ios .buffer-spinner { width:38px; height:38px; margin:-19px 0 0 -19px; }
-
-    @media (max-width:390px) {
-      html.cornbox-ios #topbar { gap:14px; }
-      html.cornbox-ios .tab { font-size:12px; }
-      html.cornbox-ios .actions { right:5px; }
-      html.cornbox-ios .action-btn { width:50px; }
-      html.cornbox-ios .meta { right:74px; }
-    }
-  `;
-  document.head.appendChild(mobileCSS);
+function renderAlbums(){
+ const names=Object.keys(albums);
+ if(!names.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▤</div><h3>No albums yet</h3><div>Use More → Add to album on any media.</div></div>';return}
+ names.forEach(name=>{const tile=document.createElement('div');tile.className='tile';tile.style.display='grid';tile.style.placeItems='center';tile.innerHTML=`<div style="text-align:center;padding:10px"><div style="font-size:32px">▤</div><b>${esc(name)}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${albums[name].length} items</div></div>`;tile.onclick=()=>{const keys=albums[name];const found=items.filter(x=>keys.includes(itemKey(x)));libraryGrid.innerHTML='';found.forEach(it=>{const t=document.createElement('div');t.className='tile';const m=document.createElement(it.type==='video'?'video':'img');m.src=it.url;m.muted=true;m.playsInline=true;t.appendChild(m);t.onclick=()=>{openScreen('home');feed.children[items.indexOf(it)]?.scrollIntoView({behavior:'smooth'})};libraryGrid.appendChild(t)});if(!found.length)libraryGrid.innerHTML='<div class="empty">This album has no available media in this session.</div>'};libraryGrid.appendChild(tile)})
 }
-
-// Native import progress HUD. The Swift wrapper reports progress while copying large
-// batches so importing 30-50 videos doesn't feel like the app froze.
-window.cornboxNativeImportProgress = function(completed, total, finished) {
-  if (!IS_NATIVE_IOS || !total) return;
-  let hud = document.getElementById('nativeImportHUD');
-  if (!hud) {
-    hud = document.createElement('div');
-    hud.id = 'nativeImportHUD';
-    hud.style.cssText = 'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 82px);transform:translateX(-50%);z-index:200;width:min(86vw,360px);padding:12px 14px;border-radius:18px;background:rgba(18,18,18,.88);border:1px solid rgba(255,255,255,.10);box-shadow:0 8px 30px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:white;';
-    hud.innerHTML = '<div id="nativeImportText" style="font-size:13px;font-weight:700;margin-bottom:8px;"></div><div style="height:5px;border-radius:999px;background:rgba(255,255,255,.13);overflow:hidden;"><div id="nativeImportBar" style="height:100%;width:0%;background:#ff7a1a;border-radius:inherit;transition:width .18s ease;"></div></div>';
-    document.body.appendChild(hud);
-  }
-  const pct = Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
-  const text = hud.querySelector('#nativeImportText');
-  const bar = hud.querySelector('#nativeImportBar');
-  text.textContent = finished ? `Imported ${total} item${total === 1 ? '' : 's'}` : `Importing ${completed} of ${total}…`;
-  bar.style.width = pct + '%';
-  hud.style.display = 'block';
-  clearTimeout(window.__cornboxImportHideTimer);
-  if (finished) {
-    window.__cornboxImportHideTimer = setTimeout(() => {
-      hud.style.opacity = '0';
-      hud.style.transition = 'opacity .25s ease';
-      setTimeout(() => hud.remove(), 280);
-    }, 900);
-  }
-};
-
-// --- initial folder pick ---
-pickFolderBtn.addEventListener('click', pickFolder);
-folderInput.addEventListener('change', (e) => { addFiles(e.target.files); launch(); });
-
-async function tryServerMode() {
-  if (location.protocol === 'file:') return false;
-  try {
-    const res = await fetch('/api/media', { cache: 'no-store' });
-    if (!res.ok) return false;
-    const list = await res.json();
-    if (!Array.isArray(list)) return false;
-    allItems = list;
-    launch();
-    return true;
-  } catch (e) {
-    return false;
-  }
+function openScreen(name){
+ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('open'));document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
+ if(name==='activity'){$('activityScreen').classList.add('open');renderActivity()}
+ if(name==='library'){$('libraryScreen').classList.add('open');renderLibrary()}
+ if(name==='profile'){$('profileScreen').classList.add('open');updateStats()}
 }
-
-(async () => {
-  if (IS_NATIVE_IOS) {
-    postNative('listMedia');
-    return;
-  }
-  const server = await tryServerMode();
-  if (!server) tryAutoLoad();
-})();
-
-['dragover','drop'].forEach(evt => document.addEventListener(evt, e => e.preventDefault()));
-document.addEventListener('drop', async (e) => {
-  const dt = e.dataTransfer;
-  if (!dt.items) return;
-  const files = [];
-  const walk = async (entry) => {
-    if (entry.isFile) { await new Promise(res => entry.file(f => { files.push(f); res(); })); }
-    else if (entry.isDirectory) {
-      const reader = entry.createReader();
-      const entries = await new Promise(res => reader.readEntries(res));
-      for (const en of entries) await walk(en);
-    }
-  };
-  const entries = Array.from(dt.items).map(i => i.webkitGetAsEntry()).filter(Boolean);
-  for (const en of entries) await walk(en);
-  if (files.length) {
-    addFiles(files);
-    if (appEl.style.display === 'block') renderFeed(); else launch();
-  }
-});
-
-addBtn.addEventListener('click', () => {
-  if (IS_NATIVE_IOS) postNative('pickMedia');
-  else filesInput.click();
-});
-filesInput.addEventListener('change', (e) => {
-  const added = addFiles(e.target.files);
-  if (added) { shuffle(allItems); renderFeed(); }
-  filesInput.value = '';
-});
-</script>
-</body>
-</html>
+document.querySelectorAll('.nav-btn[data-screen]').forEach(b=>b.onclick=()=>openScreen(b.dataset.screen));topProfile.onclick=()=>openScreen('profile');
+$('clearActivityBtn').onclick=()=>{activity=[];renderActivity();toastMsg('Activity cleared')};
+document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentFilter=b.dataset.filter;renderLibrary()});
+librarySearch.oninput=renderLibrary;
+sortBtn.onclick=()=>{sortMode=sortMode==='newest'?'name':sortMode==='name'?'type':'newest';sortBtn.textContent=sortMode==='newest'?'Newest':sortMode==='name'?'Name':'Type';renderLibrary()};
+$('shuffleBtn').onclick=()=>{items.sort(()=>Math.random()-.5);renderFeed();renderLibrary();logActivity('shuffle','Feed shuffled');toastMsg('Feed shuffled')};
+$('addBtn').onclick=()=>{if(!postNative('pickMedia'))importInput.click()};
+importInput.onchange=()=>{const fs=[...importInput.files];fs.forEach(f=>{const type=f.type.startsWith('video')?'video':f.type.startsWith('image')?'image':null;if(type)items.push({name:f.name,type,url:URL.createObjectURL(f)})});renderFeed();renderLibrary();updateStats();logActivity('import','Imported '+fs.length+' item'+(fs.length===1?'':'s'));openScreen('home');toastMsg(fs.length+' item'+(fs.length===1?'':'s')+' added');importInput.value=''};
+function setAuto(v){auto=v;autoBtn.classList.toggle('active',v);autoBtn.textContent=v?'Auto On':'Auto';autoSwitch.classLis
