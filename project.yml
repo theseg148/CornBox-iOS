@@ -11,6 +11,7 @@ targets:
     sources:
       - path: CornBox/Sources/CornBoxApp.swift
       - path: CornBox/Sources/CornBoxV6.swift
+      - path: CornBox/Sources/CornBoxV7.swift
       - path: CornBox/Sources/V6PlaybackRepair.swift
       - path: CornBox/Resources/app.html
         buildPhase: resources
@@ -20,8 +21,9 @@ targets:
       path: CornBox/Info.plist
       properties:
         CFBundleDisplayName: CornBox
-        CFBundleShortVersionString: "2.1.1"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "2.2.0"
+        CFBundleVersion: "10"
+        NSPhotoLibraryUsageDescription: "CornBox uses your photo library so you can add photos and videos to your local collection."
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
