@@ -2,7 +2,7 @@ name: CornBox
 options:
   bundleIdPrefix: com.abx
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
 
 targets:
   CornBox:
@@ -18,8 +18,8 @@ targets:
       path: CornBox/Info.plist
       properties:
         CFBundleDisplayName: CornBox
-        CFBundleShortVersionString: "1.1"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "2.0"
+        CFBundleVersion: "6"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
