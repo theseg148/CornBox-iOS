@@ -1,61 +1,7 @@
-ortProgress=function(completed,total,finished){
-  if(!total)return;
-  if(finished)toastMsg('Imported '+total+' item'+(total===1?'':'s'));
-  else toastMsg('Importing '+completed+' of '+total+'…');
-};
-
-let currentFilter='all',currentItem=null,auto=false,loop=true,defaultMuted=false,autoplay=true,autoTimer=null;
-let sortMode='newest';
-let profile=JSON.parse(localStorage.getItem('cornbox_redesign_profile')||'null')||{name:'CornBox User',handle:'@cornbox',bio:'Your private media feed. Everything stays on this device.',picture:null,accounts:[]};
-
-function toastMsg(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastMsg.t);toastMsg.t=setTimeout(()=>toast.classList.remove('show'),1700)}
-function logActivity(type,title,detail=''){
-  const icons={like:'♥',comment:'◌',import:'＋',view:'▶',album:'▤',profile:'◉',account:'@',remove:'−',shuffle:'⤨',settings:'⚙'};
-  activity.unshift({type,title,detail,time:Date.now(),icon:icons[type]||'•'});
-  activity=activity.slice(0,100);
-  if($('activityScreen').classList.contains('open')) renderActivity();
-}
-function timeAgo(ts){
-  const s=Math.max(1,Math.floor((Date.now()-ts)/1000));
-  if(s<60)return s+'s ago';
-  const m=Math.floor(s/60); if(m<60)return m+'m ago';
-  const h=Math.floor(m/60); if(h<24)return h+'h ago';
-  return Math.floor(h/24)+'d ago';
-}
-function renderActivity(){
-  const box=$('activityList');
-  if(!activity.length){
-    box.innerHTML='<div class="activity-empty"><div class="big">◴</div><h3>No activity yet</h3><div>Likes, comments, imports, views and album changes will appear here.</div></div>';
-    return;
-  }
-  box.innerHTML=activity.map(a=>`<div class="activity-item"><div class="activity-ico">${esc(a.icon)}</div><div class="activity-copy"><b>${esc(a.title)}</b>${a.detail?`<span>${esc(a.detail)}</span>`:''}<span>${timeAgo(a.time)}</span></div></div>`).join('');
-}
-
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function saveProfile(){localStorage.setItem('cornbox_redesign_profile',JSON.stringify(profile));updateProfileUI()}
-function updateStats(){$('statMedia').textContent=items.length;$('statLikes').textContent=Object.values(liked).filter(Boolean).length;$('statAlbums').textContent=Object.keys(albums).length}
-function updateProfileUI(){
- profileName.textContent=profile.name||'CornBox User';profileHandle.textContent=profile.handle||'@cornbox';profileBio.textContent=profile.bio||'';
- nameInput.value=profile.name||'';handleInput.value=profile.handle||'';bioInput.value=profile.bio||'';
- const initial=(profile.name||'C').trim().charAt(0).toUpperCase()||'C';
- [profilePic,topProfile].forEach(el=>el.innerHTML=profile.picture?'<img src="'+profile.picture+'" alt="">':initial);
- const box=$('accountsList');
- box.innerHTML=profile.accounts.length?profile.accounts.map((a,i)=>`<div class="row ${i===0?'first':''} ${i===profile.accounts.length-1?'last':''}"><div class="row-left"><div class="row-icon">${esc((a.service||'?')[0].toUpperCase())}</div><div class="row-meta"><b>${esc(a.service)}</b><span>${esc(a.value)}</span></div></div><button class="account-remove" data-account="${i}">Remove</button></div>`).join(''):'<div style="color:var(--muted);font-size:13px;padding:4px 2px">No accounts added.</div>';
- box.querySelectorAll('[data-account]').forEach(b=>b.onclick=()=>{const removed=profile.accounts[+b.dataset.account];profile.accounts.splice(+b.dataset.account,1);saveProfile();logActivity('account','Removed account',removed?removed.service:'');toastMsg('Account removed')});
- updateStats();
-}
-function itemKey(it){return it?it.name:''}
-function makeSlide(item,index){
- const slide=document.createElement('section');slide.className='slide';slide.dataset.index=index;
- if(item){
-  const m=document.createElement(item.type==='video'?'video':'img');m.className='media';m.src=item.url;
-  if(item.type==='video'){m.playsInline=true;m.preload='metadata';m.muted=defaultMuted;m.addEventListener('click',()=>m.paused?m.play():m.pause())}
-  slide.appendChild(m);
- }else slide.innerHTML='<div class="placeholder"><div class="placeholder-inner"><div class="placeholder-logo">🌽</div><div class="placeholder-title">CornBox</div><div class="placeholder-sub">Add videos or photos to start your feed.</div></div></div>';
- const key=itemKey(item),isLiked=item&&liked[key],count=(comments[key]||[]).length;
- slide.insertAdjacentHTML('beforeend',`<div class="caption"><div class="caption-name">${esc(item?item.name:'Your feed')}</div><div class="caption-desc">${item?'Local media • only on this device':'Use + below to import media.'}</div></div><div class="actions">${item?`<button class="action like ${isLiked?'liked':''}" data-action="like" data-key="${esc(key)}"><span class="icon">♥</span><span class="label">${isLiked?'Liked':'Like'}</span></button><button class="action" data-action="comment" data-key="${esc(key)}"><span class="icon">◌</span><span class="label">${count?count:'Comment'}</span></button>${item.type==='video'?`<button class="action" data-action="mute"><span class="icon">${defaultMuted?'🔇':'🔊'}</span><span class="label">Sound</span></button>`:''}<button class="action" data-action="more" data-key="${esc(key)}"><span class="icon">•••</span><span class="label">More</span></button>`:''}</div><div class="progress"><div class="progress-track"><div class="progress-fill"></div></div></div>`);
- return slide;
-}
-function bindSlideActions(){
- feed.querySelectorAll('[data-action]').forEach(btn=>btn.onclick=e=>{
-  e.stopPropagation();const slide=bt
+ck',()=>m.paused?m.play():m.pause())} slide.appendChild(m);} else {slide.innerHTML='<div class="placeholder"><div class="placeholder-inner"><div class="placeholder-logo">🌽</div><div class="placeholder-title">CornBox</div><div class="placeholder-sub">Import creator videos with the + button.</div></div></div>';} const key=item?item.id:'', isLiked=item&&liked[key], count=item?(comments[key]||[]).length:0; slide.insertAdjacentHTML('beforeend',`<div class="caption">${item?creatorMarkup(item):''}<div class="caption-desc">${item?esc(item.name):'Your feed will show creator names, handles and pictures here.'}</div></div><div class="actions">${item?`<button class="action like ${isLiked?'liked':''}" data-action="like" data-key="${key}"><span class="icon">♥</span><span class="label">${isLiked?'Liked':'Like'}</span></button><button class="action" data-action="comment"><span class="icon">◌</span><span class="label">${count} comments</span></button>${item.type==='video'?`<button class="action" data-action="mute"><span class="icon">${defaultMuted?'🔇':'🔊'}</span><span class="label">Audio</span></button>`:''}<button class="action" data-action="more"><span class="icon">•••</span><span class="label">More</span></button>`:''}</div><div class="progress"><div class="progress-track"><div class="progress-fill"></div></div></div>`); return slide;}
+function bindSlideActions(){feed.querySelectorAll('[data-action]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const slide=btn.closest('.slide');const it=items[+slide.dataset.index];if(!it)return;currentItem=it;if(btn.dataset.action==='like'){liked[it.id]=!liked[it.id];saveState();logActivity('like',liked[it.id]?'Liked media':'Unliked media',it.name);renderFeed();renderLibrary();} if(btn.dataset.action==='comment')openComments(it); if(btn.dataset.action==='mute'){const v=slide.querySelector('video'); if(v){v.muted=!v.muted; btn.querySelector('.icon').textContent=v.muted?'🔇':'🔊';}} if(btn.dataset.action==='more')openSheet('moreSheet');});}
+function renderFeed(){const current=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight)); feed.innerHTML=''; if(!items.length)feed.appendChild(makeSlide(null,0)); else items.forEach((it,i)=>feed.appendChild(makeSlide(it,i))); bindSlideActions(); requestAnimationFrame(()=>{if(items.length&&feed.children[Math.min(current,items.length-1)])feed.children[Math.min(current,items.length-1)].scrollIntoView()}); restartAuto(); updateStats();}
+function filteredItems(){let arr=[...items], q=librarySearch.value.trim().toLowerCase(); if(currentFilter==='liked')arr=arr.filter(x=>liked[x.id]); if(currentFilter==='photos')arr=arr.filter(x=>x.type==='image'); if(currentFilter==='videos')arr=arr.filter(x=>x.type==='video'); if(currentFilter==='history')arr=history.map(id=>items.find(x=>x.id===id)).filter(Boolean); if(currentFilter==='unassigned')arr=arr.filter(x=>!x.creatorId); if(q)arr=arr.filter(x=>x.name.toLowerCase().includes(q) || ((creatorById(x.creatorId)?.name||'').toLowerCase().includes(q)) || ((creatorById(x.creatorId)?.handle||'').toLowerCase().includes(q))); if(sortMode==='name')arr.sort((a,b)=>a.name.localeCompare(b.name)); if(sortMode==='type')arr.sort((a,b)=>a.type.localeCompare(b.type)||a.name.localeCompare(b.name)); return arr;}
+function renderLibrary(){libraryGrid.innerHTML=''; if(currentFilter==='albums'){renderAlbums(); return;} if(currentFilter==='creators'){renderCreatorsLibrary(); return;} const arr=filteredItems(); if(!arr.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▦</div><h3>Nothing here yet</h3><div>Import media or change the filter.</div></div>'; return;} arr.forEach(it=>{const tile=document.createElement('div'); tile.className='tile'; const media=document.createElement(it.type==='video'?'video':'img'); media.src=it.url; media.muted=true; media.playsInline=true; const badge=document.createElement('div'); badge.className='tile-badge'; const creator=creatorById(it.creatorId); badge.textContent=creator?creator.name:it.type; tile.append(media,badge); tile.onclick=()=>{openScreen('home'); const idx=items.indexOf(it); feed.children[idx]?.scrollIntoView({behavior:'smooth'})}; libraryGrid.appendChild(tile);});}
+function renderCreatorsLibrary(){libraryGrid.innerHTML=''; const q=librarySearch.value.trim().toLowerCase(); const arr=creators.filter(c=>!q || c.name.toLowerCase().includes(q) || (c.handle||'').toLowerCase().includes(q)); if(!arr.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">◉</div><h3>No creators found</h3><div>Create one or clear the search.</div></div>'; return;} libraryGrid.style.display='block'; libraryGrid.style.padding='0 0 12px 0'; arr.forEach(c=>{const card=document.createElement('div'); card.className='creator-card'; card.innerHTML=`<div class="pic">${c.photo?`<img src="${c.photo}" alt="">`:esc(creatorInitial(c.name))}</div><div class="meta"><b>${esc(c.name)}</b><span>${esc(c.handle||'')}</span><small>${creatorMediaCount(c.id)} media${c.bio?' • '+esc(c.bio):''}</small></div><button>View</button>`; card.querySelector('button').onclick=()=>{libraryGrid.style.display='grid'; libraryGrid.style.padding='2px'; libraryGrid.innerHTML=''; const found=items.filter(x=>x.creatorId===c.id); if(!found.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">◉</div><h3>No media</h3><div>This creator has no media yet.</div></div>'; return;} found.forEach(it=>{const t=document.createElement('div'); t.className='tile'; const m=document.createElement(it.type==='video'?'video':'img'); m.src=it.url; m.muted=true; m.playsInline=true; const b=document.createElement('div'); b.className='tile-badge'; b.textContent=it.type; t.append(m,b); t.onclick=()=>{openScreen('home'); const idx=items.indexOf(it); feed.children[idx]?.scrollIntoView({behavior:'smooth'})}; libraryGrid.appendChild(t);});}; libraryGrid.appendChild(card)});}
+function renderAlbums(){libraryGrid.style.display='grid'; libraryGrid.style.padding='2px'; const names=Object.keys(albums); if(!names.length){libraryGrid.innerHTML='<div class="empty"><div class="empty-
