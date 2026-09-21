@@ -1,0 +1,180 @@
+      <button class="tab" data-tab="liked">Liked</button>
+      <button class="tab" data-tab="photos">Photos</button>
+      <button class="tab" data-tab="videos">Videos</button>
+      <button class="tab" data-tab="albums">Albums</button>
+    </div>
+    <div id="utilRow">
+      <button class="pill" id="autoscrollToggle">⏵ Auto</button>
+      <button class="pill" id="settingsBtn">⚙️</button>
+      <button class="pill" id="reshuffleBtn">🔀</button>
+    </div>
+    <div id="albumChips" style="display:none;"></div>
+  </div>
+  <div id="feed"></div>
+  <button id="addBtn" title="Add more videos">＋</button>
+</div>
+
+<div id="empty">
+  <div style="font-size:40px;">📭</div>
+  <div id="emptyMsg">No media found in that folder.</div>
+</div>
+
+<input type="file" id="folderInput" webkitdirectory multiple style="display:none;">
+<input type="file" id="filesInput" multiple accept="video/*,image/*" style="display:none;">
+
+<div id="cmtOverlay">
+  <div id="cmtSheet">
+    <div id="cmtHeader"><span id="cmtTitle">Comments</span><button id="cmtClose">✕</button></div>
+    <div id="cmtList"></div>
+    <div id="cmtInputRow">
+      <input type="text" id="cmtInput" placeholder="Add a comment..." maxlength="200">
+      <button id="cmtSend">Post</button>
+    </div>
+  </div>
+</div>
+
+<div id="settingsOverlay">
+  <div id="settingsSheet">
+    <div class="sheetHeader"><span>Auto-scroll settings</span><button id="settingsClose">✕</button></div>
+
+    <div class="settingRow">
+      <label>Auto-scroll <span class="switch"><input type="checkbox" id="setEnabled"><span class="slider-toggle"></span></span></label>
+      <div class="sub">Advance to the next item automatically.</div>
+    </div>
+
+    <div class="settingRow">
+      <label>Photo dwell time <span class="valLabel" id="photoDelayVal">6s</span></label>
+      <div class="sub">How long each photo stays before advancing.</div>
+      <input type="range" id="photoDelay" min="1" max="30" step="1" value="6">
+    </div>
+
+    <div class="settingRow">
+      <label>Video behavior</label>
+      <div class="sub">How auto-scroll decides when to move on from a video.</div>
+      <div class="radioRow">
+        <button data-mode="finish" class="active">Wait till it ends</button>
+        <button data-mode="fixed">Fixed timer</button>
+      </div>
+    </div>
+
+    <div class="settingRow" id="videoFixedRow" style="display:none;">
+      <label>Video timer <span class="valLabel" id="videoDelayVal">6s</span></label>
+      <div class="sub">Advances after this long, even if the video is still playing.</div>
+      <input type="range" id="videoDelay" min="1" max="60" step="1" value="6">
+    </div>
+
+    <div class="settingRow">
+      <label>Max wait for long videos <span class="valLabel" id="capVal">Off</span></label>
+      <div class="sub">Cap how long "wait till it ends" will ever wait, for very long videos.</div>
+      <input type="range" id="capDelay" min="0" max="120" step="5" value="0">
+    </div>
+
+    <div class="settingRow">
+      <label>Loop the feed <span class="switch"><input type="checkbox" id="setLoop"><span class="slider-toggle"></span></span></label>
+      <div class="sub">When auto-scroll reaches the last item, jump back to the first.</div>
+    </div>
+  </div>
+</div>
+
+<div id="albumOverlay">
+  <div id="albumSheet">
+    <div class="sheetHeader"><span id="albumSheetTitle">Add to album</span><button id="albumClose">✕</button></div>
+    <div id="albumPickList"></div>
+    <div id="newAlbumRow">
+      <input type="text" id="newAlbumInput" placeholder="New album name..." maxlength="40">
+      <button id="newAlbumBtn">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const splash = document.getElementById('splash');
+const appEl = document.getElementById('app');
+const feedEl = document.getElementById('feed');
+const emptyEl = document.getElementById('empty');
+const emptyMsg = document.getElementById('emptyMsg');
+const addBtn = document.getElementById('addBtn');
+const pickFolderBtn = document.getElementById('pickFolderBtn');
+const folderInput = document.getElementById('folderInput');
+const filesInput = document.getElementById('filesInput');
+const autoscrollToggle = document.getElementById('autoscrollToggle');
+const reshuffleBtn = document.getElementById('reshuffleBtn');
+const tabs = document.querySelectorAll('.tab');
+const cmtOverlay = document.getElementById('cmtOverlay');
+const cmtList = document.getElementById('cmtList');
+const cmtInput = document.getElementById('cmtInput');
+const cmtSend = document.getElementById('cmtSend');
+const cmtClose = document.getElementById('cmtClose');
+const cmtTitle = document.getElementById('cmtTitle');
+const albumChipsEl = document.getElementById('albumChips');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const settingsClose = document.getElementById('settingsClose');
+const setEnabled = document.getElementById('setEnabled');
+const photoDelay = document.getElementById('photoDelay');
+const photoDelayVal = document.getElementById('photoDelayVal');
+const videoFixedRow = document.getElementById('videoFixedRow');
+const videoDelay = document.getElementById('videoDelay');
+const videoDelayVal = document.getElementById('videoDelayVal');
+const capDelay = document.getElementById('capDelay');
+const capVal = document.getElementById('capVal');
+const setLoop = document.getElementById('setLoop');
+const albumOverlay = document.getElementById('albumOverlay');
+const albumClose = document.getElementById('albumClose');
+const albumPickList = document.getElementById('albumPickList');
+const newAlbumInput = document.getElementById('newAlbumInput');
+const newAlbumBtn = document.getElementById('newAlbumBtn');
+
+const VIDEO_EXT = ['mp4','mov','webm','m4v'];
+const IMAGE_EXT = ['jpg','jpeg','png','gif','webp','heic','heif'];
+const IS_NATIVE_IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cornbox);
+
+function postNative(action, payload = {}) {
+  if (!IS_NATIVE_IOS) return false;
+  window.webkit.messageHandlers.cornbox.postMessage({ action, ...payload });
+  return true;
+}
+
+let allItems = [];            // {url, type, name}
+let currentTab = 'foryou';
+let currentAlbum = null;
+let autoscrollOn = false;
+let autoscrollTimer = null;
+let currentSlide = null;
+let muted = false;
+let activeCmtName = null;
+let activeAlbumPickName = null;
+
+// Called by the native iPhone wrapper whenever its private media library changes.
+// Native imports are copied into Application Support/CornBox/media, so unlike browser
+// object URLs they still exist after the app is closed and reopened.
+window.cornboxNativeSetMedia = function(items) {
+  if (!Array.isArray(items)) return;
+  allItems = items.filter(i => i && (i.type === 'video' || i.type === 'image') && i.url);
+  loadingMsg && (loadingMsg.style.display = 'none');
+
+  if (allItems.length === 0) {
+    appEl.style.display = 'none';
+    emptyEl.style.display = 'none';
+    splash.style.display = 'flex';
+    return;
+  }
+
+  if (appEl.style.display === 'block') {
+    shuffle(allItems);
+    renderFeed();
+    feedEl.scrollTo({ top: 0 });
+  } else {
+    launch();
+  }
+};
+
+if (IS_NATIVE_IOS) {
+  const hint = document.getElementById('dropHint');
+  if (hint) hint.textContent = 'Choose from Photos or Files — imports stay inside CornBox.';
+}
+
+let likes = JSON.parse(localStorage.getItem('rb_likes') || '{}');
+let comments = JSON.parse(localStorage.getItem('rb_comments') || '{}'); // name -> [text,...]
+let albums = JSON.parse(localStorage.getItem('rb_albums') || '{}');     // albumName -> [item names]
+let settings = Object.assign({
