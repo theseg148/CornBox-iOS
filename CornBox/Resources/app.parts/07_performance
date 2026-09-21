@@ -1,0 +1,261 @@
+
+<script>
+(() => {
+  // CornBox performance layer: keep only 4 live video decoders in the feed
+  // (1 previous, current, 2 next). Everything else is detached.
+  let perfActiveIndex = 0;
+  let perfScrollTimer = null;
+
+  function perfVideoPlaceholder(label='') {
+    const slot=document.createElement('div');
+    slot.className='media video-slot';
+    slot.dataset.videoSlot='1';
+    slot.style.cssText='contain:strict;background:#050505;display:grid;place-items:center;color:#777';
+    slot.innerHTML='<div style="text-align:center"><div style="font-size:34px">▶</div>'+(label?'<div style="font-size:11px;margin-top:6px">'+esc(label)+'</div>':'')+'</div>';
+    return slot;
+  }
+
+  function perfMountVideo(index, preloadMode='metadata') {
+    if(index<0 || index>=items.length) return;
+    const item=items[index];
+    if(!item || item.type!=='video') return;
+    const slide=feed.children[index];
+    if(!slide) return;
+
+    let video=slide.querySelector('video.media');
+    if(video) {
+      video.preload=preloadMode;
+      return;
+    }
+
+    const slot=slide.querySelector('[data-video-slot]');
+    if(!slot) return;
+
+    video=document.createElement('video');
+    video.className='media';
+    video.src=item.url;
+    video.playsInline=true;
+    video.setAttribute('webkit-playsinline','');
+    video.preload=preloadMode;
+    video.muted=defaultMuted;
+    video.addEventListener('click',()=>{
+      if(video.paused) video.play().catch(()=>{});
+      else video.pause();
+    });
+    slot.replaceWith(video);
+  }
+
+  function perfReleaseVideo(index) {
+    if(index<0 || index>=items.length) return;
+    const item=items[index];
+    if(!item || item.type!=='video') return;
+    const slide=feed.children[index];
+    if(!slide) return;
+    const video=slide.querySelector('video.media');
+    if(!video) return;
+    try {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    } catch(e) {}
+    video.replaceWith(perfVideoPlaceholder());
+  }
+
+  function perfUpdateWindow(center) {
+    if(!items.length) return;
+    center=Math.max(0,Math.min(items.length-1,center));
+    perfActiveIndex=center;
+    const keep=new Set([center-1,center,center+1,center+2]);
+
+    items.forEach((item,i)=>{
+      if(item.type!=='video') return;
+      if(keep.has(i)) {
+        perfMountVideo(i,i===center?'auto':'metadata');
+      } else {
+        perfReleaseVideo(i);
+      }
+    });
+
+    const current=feed.children[center]?.querySelector('video.media');
+    feed.querySelectorAll('video.media').forEach(v=>{
+      if(v!==current) v.pause();
+    });
+    if(current && autoplay) current.play().catch(()=>{});
+  }
+
+  makeSlide=function(item,index){
+    const slide=document.createElement('section');
+    slide.className='slide';
+    slide.dataset.index=index;
+    slide.style.contentVisibility='auto';
+    slide.style.containIntrinsicSize='100dvh 430px';
+
+    if(item){
+      if(item.type==='image'){
+        const img=document.createElement('img');
+        img.className='media';
+        img.src=item.url;
+        img.loading='lazy';
+        img.decoding='async';
+        slide.appendChild(img);
+      }else{
+        slide.appendChild(perfVideoPlaceholder(''));
+      }
+    }else{
+      slide.innerHTML='<div class="placeholder"><div class="placeholder-inner"><div class="placeholder-logo">🌽</div><div class="placeholder-title">CornBox</div><div class="placeholder-sub">Import creator videos with the + button.</div></div></div>';
+    }
+
+    const key=item?item.id:'', isLiked=item&&liked[key], count=item?(comments[key]||[]).length:0;
+    slide.insertAdjacentHTML('beforeend',`<div class="caption">${item?creatorMarkup(item):''}<div class="caption-desc">${item?esc(item.name):'Your feed will show creator names, handles and pictures here.'}</div></div><div class="actions">${item?`<button class="action like ${isLiked?'liked':''}" data-action="like" data-key="${key}"><span class="icon">♥</span><span class="label">${isLiked?'Liked':'Like'}</span></button><button class="action" data-action="comment"><span class="icon">◌</span><span class="label">${count} comments</span></button>${item.type==='video'?`<button class="action" data-action="mute"><span class="icon">${defaultMuted?'🔇':'🔊'}</span><span class="label">Audio</span></button>`:''}<button class="action" data-action="more"><span class="icon">•••</span><span class="label">More</span></button>`:''}</div><div class="progress"><div class="progress-track"><div class="progress-fill"></div></div></div>`);
+    return slide;
+  };
+
+  renderFeed=function(){
+    const current=Math.max(0,Math.min(Math.max(0,items.length-1),Math.round(feed.scrollTop/Math.max(1,feed.clientHeight))));
+    feed.querySelectorAll('video.media').forEach(v=>{
+      try { v.pause(); v.removeAttribute('src'); v.load(); } catch(e) {}
+    });
+    feed.innerHTML='';
+    if(!items.length) feed.appendChild(makeSlide(null,0));
+    else items.forEach((it,i)=>feed.appendChild(makeSlide(it,i)));
+    bindSlideActions();
+    requestAnimationFrame(()=>{
+      if(items.length && feed.children[current]){
+        feed.children[current].scrollIntoView();
+        perfUpdateWindow(current);
+      }
+    });
+    restartAuto();
+    updateStats();
+  };
+
+  function perfLibraryTile(it){
+    const tile=document.createElement('div');
+    tile.className='tile';
+    const creator=creatorById(it.creatorId);
+    if(it.type==='image'){
+      const img=document.createElement('img');
+      img.src=it.url;
+      img.loading='lazy';
+      img.decoding='async';
+      tile.appendChild(img);
+    }else{
+      const preview=document.createElement('div');
+      preview.style.cssText='width:100%;height:100%;display:grid;place-items:center;background:#121212;color:#777';
+      preview.innerHTML='<div style="text-align:center"><div style="font-size:30px">▶</div><div style="font-size:9px;margin-top:6px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.name)+'</div></div>';
+      tile.appendChild(preview);
+    }
+    const badge=document.createElement('div');
+    badge.className='tile-badge';
+    badge.textContent=creator?creator.name:it.type;
+    tile.appendChild(badge);
+    tile.onclick=()=>{
+      openScreen('home');
+      const idx=items.indexOf(it);
+      feed.children[idx]?.scrollIntoView({behavior:'smooth'});
+      setTimeout(()=>perfUpdateWindow(idx),60);
+    };
+    return tile;
+  }
+
+  renderLibrary=function(){
+    libraryGrid.innerHTML='';
+    if(currentFilter==='albums'){renderAlbums();return;}
+    if(currentFilter==='creators'){renderCreatorsLibrary();return;}
+    const arr=filteredItems();
+    if(!arr.length){
+      libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▦</div><h3>Nothing here yet</h3><div>Import media or change the filter.</div></div>';
+      return;
+    }
+    arr.forEach(it=>libraryGrid.appendChild(perfLibraryTile(it)));
+  };
+
+  renderCreatorsLibrary=function(){
+    libraryGrid.innerHTML='';
+    const q=librarySearch.value.trim().toLowerCase();
+    const arr=creators.filter(c=>!q || c.name.toLowerCase().includes(q) || (c.handle||'').toLowerCase().includes(q));
+    if(!arr.length){
+      libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">◉</div><h3>No creators found</h3><div>Create one or clear the search.</div></div>';
+      return;
+    }
+    libraryGrid.style.display='block';
+    libraryGrid.style.padding='0 0 12px 0';
+    arr.forEach(c=>{
+      const card=document.createElement('div');
+      card.className='creator-card';
+      card.innerHTML=`<div class="pic">${c.photo?`<img src="${c.photo}" alt="">`:esc(creatorInitial(c.name))}</div><div class="meta"><b>${esc(c.name)}</b><span>${esc(c.handle||'')}</span><small>${creatorMediaCount(c.id)} media${c.bio?' • '+esc(c.bio):''}</small></div><button>View</button>`;
+      card.querySelector('button').onclick=()=>{
+        libraryGrid.style.display='grid';
+        libraryGrid.style.padding='2px';
+        libraryGrid.innerHTML='';
+        const found=items.filter(x=>x.creatorId===c.id);
+        if(!found.length){
+          libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">◉</div><h3>No media</h3><div>This creator has no media yet.</div></div>';
+          return;
+        }
+        found.forEach(it=>libraryGrid.appendChild(perfLibraryTile(it)));
+      };
+      libraryGrid.appendChild(card);
+    });
+  };
+
+  renderAlbums=function(){
+    libraryGrid.style.display='grid';
+    libraryGrid.style.padding='2px';
+    const names=Object.keys(albums);
+    if(!names.length){
+      libraryGrid.innerHTML='<div class="empty"><div class="empty-icon">▤</div><h3>No albums yet</h3><div>Use More → Add to album on any media.</div></div>';
+      return;
+    }
+    libraryGrid.innerHTML='';
+    names.forEach(name=>{
+      const tile=document.createElement('div');
+      tile.className='tile';
+      tile.style.display='grid';
+      tile.style.placeItems='center';
+      tile.innerHTML=`<div style="text-align:center;padding:10px"><div style="font-size:32px">▤</div><b>${esc(name)}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${albums[name].length} items</div></div>`;
+      tile.onclick=()=>{
+        const ids=albums[name];
+        const found=items.filter(x=>ids.includes(x.id));
+        libraryGrid.innerHTML='';
+        found.forEach(it=>libraryGrid.appendChild(perfLibraryTile(it)));
+      };
+      libraryGrid.appendChild(tile);
+    });
+  };
+
+  const oldOpenScreen=openScreen;
+  openScreen=function(name){
+    if(name!=='home') feed.querySelectorAll('video.media').forEach(v=>v.pause());
+    oldOpenScreen(name);
+    if(name==='home') setTimeout(()=>perfUpdateWindow(perfActiveIndex),40);
+  };
+
+  feed.addEventListener('scroll',()=>{
+    clearTimeout(perfScrollTimer);
+    perfScrollTimer=setTimeout(()=>{
+      if(!items.length) return;
+      const idx=Math.max(0,Math.min(items.length-1,Math.round(feed.scrollTop/Math.max(1,feed.clientHeight))));
+      perfUpdateWindow(idx);
+    },180);
+  },{passive:true});
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      feed.querySelectorAll('video.media').forEach(v=>v.pause());
+    }else if(items.length){
+      perfUpdateWindow(perfActiveIndex);
+    }
+  });
+
+  window.addEventListener('pagehide',()=>{
+    feed.querySelectorAll('video.media').forEach(v=>{
+      try { v.pause(); v.removeAttribute('src'); v.load(); } catch(e) {}
+    });
+  });
+
+  // Replace the original eager render immediately after this performance layer loads.
+  renderFeed();
+  renderLibrary();
+})();
+</script>
