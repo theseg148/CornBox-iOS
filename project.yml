@@ -1,0 +1,40 @@
+name: CornBox
+options:
+  bundleIdPrefix: com.abx
+  deploymentTarget:
+    iOS: "16.0"
+
+targets:
+  CornBox:
+    type: application
+    platform: iOS
+    sources:
+      - path: CornBox/Sources
+    resources:
+      - path: CornBox/Resources
+    info:
+      path: CornBox/Info.plist
+      properties:
+        CFBundleDisplayName: CornBox
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.abx.cornbox
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+
+schemes:
+  CornBox:
+    build:
+      targets:
+        CornBox: all
+    run:
+      config: Debug
+    archive:
+      config: Release
